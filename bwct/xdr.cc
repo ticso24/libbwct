@@ -8,11 +8,11 @@
  * $Rev$
  */
 
-#include "config.h"
-#include "bsd.h"
-#include "tool.h"
-#include "xdr.h"
-#include "fdhelper.h"
+#include <bwct/config.h>
+#include <bwct/bsd.h>
+#include <bwct/tool.h>
+#include <bwct/xdr.h>
+#include <bwct/fdhelper.h>
 
 bool_t
 xdr_cbackup_string(XDR *xdrs, cbackup_string *objp) {

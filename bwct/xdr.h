@@ -13,8 +13,8 @@
 
 class File;
 
-#include "config.h"
-#include "tool.h"
+#include <bwct/config.h>
+#include <bwct/tool.h>
 
 #define cbackup_string String
 

@@ -11,7 +11,7 @@
 #ifndef _TOOL
 #define _TOOL
 
-#include "config.h"
+#include <bwct/config.h>
 
 class Base;
 
