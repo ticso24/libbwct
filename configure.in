@@ -31,6 +31,7 @@ CB_CFLAGS="$CB_CFLAGS -D_BSD_SOURCE=1"		# reenable gethostname and others on Lin
 CB_CFLAGS="$CB_CFLAGS -D_LARGEFILE64_SOURCE=1"	# access to files greater than 2Gb in Solaris
 CB_CFLAGS="$CB_CFLAGS -D_USE_LARGEFILE64=1"	# access to files greater than 2Gb in Linux
 CB_CFLAGS="$CB_CFLAGS -D_LARGE_FILE_API=1"	# access to files greater than 2Gb in AIX
+
 CXXFLAGS="$CXXFLAGS $CB_CFLAGS"
 CFLAGS="$CFLAGS $CB_CFLAGS"
 
@@ -79,7 +80,6 @@ AC_CHECK_FUNCS(waitpid getnameinfo gai_strerror kqueue sigset)
 AC_CHECK_FUNCS(xdr_u_int64_t)
 AC_CHECK_FUNCS(open64)
 AC_CHECK_FUNCS(readdir64)
-AC_DEFINE(HAVE_X, 1, [dummy])
 
 AC_MSG_CHECKING(wether the system has IOV_MAX)
 AC_TRY_COMPILE([ #include <limits.h> ],
@@ -131,7 +131,8 @@ for dir in $openssl_config_prefix /usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg 
     ssldir="$dir"
     if test -f "$dir/include/openssl/ssl.h"; then
         found_ssl="yes";
-        CXXFLAGS="$CXXFLAGS -I$ssldir/include -DHAVE_SSL";
+        CXXFLAGS="$CXXFLAGS -I$ssldir/include";
+	AC_DEFINE(HAVE_SSL, 1, [define wether we have SSL])
         break;
     fi
 done
@@ -154,7 +155,8 @@ for dir in $mird_config_prefix /usr/local /usr/lib /usr /usr /opt/mird; do
     mirddir="$dir"
     if test -f "$dir/include/mird.h"; then
         found_mird="yes";
-        CXXFLAGS="$CXXFLAGS -I$mirddir/include -DHAVE_MIRD";
+        CXXFLAGS="$CXXFLAGS -I$mirddir/include";
+	AC_DEFINE(HAVE_MIRD, 1, [define wether we have MIRD])
         break;
     fi
 done
