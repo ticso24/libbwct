@@ -62,7 +62,7 @@ public:
 			void *data;
 			size_t size;
 			db.get(1, name, &data, &size);
-			if (size != sizeof(int)
+			if (size != sizeof(int))
 				throw Error("");
 			bcopy(&tableno, data, sizeof(int));
 			db.free(data);
