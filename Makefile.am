@@ -9,6 +9,7 @@
 #
 
 includedir = $(DESTDIR)$(prefix)/include/bwct
+bin_SCRIPTS =		libbwct-config
 dist_data_DATA =	INSTALL
 lib_LIBRARIES =		libbwct.a
 include_HEADERS =	bwct/base.h \
