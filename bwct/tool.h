@@ -455,7 +455,7 @@ Array<T>::setsize(const int i) {
 
 template <class T>
 T*
-cutptr(const int i) {
+Array<T>::cutptr(const int i) {
 	cassert(i >= 0);
 	T *tmp = elements[i];
 	elements[i] = NULL;
@@ -464,7 +464,7 @@ cutptr(const int i) {
 
 template <class T>
 void
-pasteptr(const int i, T* ptr) {
+Array<T>::pasteptr(const int i, T* ptr) {
 	cassert(i >= 0);
 	if (i > max) {
 		max = i;
