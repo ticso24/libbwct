@@ -30,7 +30,7 @@ public:
 	Database(const String& filename, int flags = 0, uint mode = 600);
 	~Database();
 	void create(int num);
-	void delete(int num);
+	void del(int num);
 	void free(void* data);
 	void get(int table, const String& key, void** data, size_t* size);
 	void set(int table, const String& key, void* data, size_t size);

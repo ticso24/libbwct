@@ -60,7 +60,7 @@ Database::create(int num) {
 }
 
 void
-Database::delete(int num) {
+Database::del(int num) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
