@@ -12,7 +12,8 @@
 #include <bwct/base.h>
 #include <bwct/database.h>
 
-DB::DB(const String& filename, int flags, uint mode) {
+void
+DB::open(const String& filename, int flags, uint mode) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_initialize((char*)filename.c_str(), &db);
@@ -29,6 +30,14 @@ DB::DB(const String& filename, int flags, uint mode) {
 		throw Error("sync db failed");
 }
 
+DB::DB(const String& filename, int flags, uint mode) {
+	open(filename, flags, mode);
+}
+
+DB::DB() {
+	db = NULL;
+}
+
 DB::~DB() {
 	Mutex::Guard mutex(mtx);
 	if (db != NULL) {
@@ -39,6 +48,7 @@ DB::~DB() {
 
 void
 DB::n_create(uint32_t num) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -62,6 +72,7 @@ DB::n_create(uint32_t num) {
 
 void
 DB::s_create(uint32_t num) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -85,6 +96,7 @@ DB::s_create(uint32_t num) {
 
 void
 DB::del(uint32_t num) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -114,6 +126,7 @@ DB::free(void* data) {
 
 void
 DB::get(uint32_t table, const uint32_t key, void** data, size_t* size) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_key_lookup(db, table, key,
@@ -124,6 +137,7 @@ DB::get(uint32_t table, const uint32_t key, void** data, size_t* size) {
 
 void
 DB::get(uint32_t table, const String& key, void** data, size_t* size) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_s_key_lookup(db, table,
@@ -145,6 +159,7 @@ DB::del(uint32_t table, const String& key) {
 
 void
 DB::set(uint32_t table, const uint32_t key, void* data, size_t size) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -169,6 +184,7 @@ DB::set(uint32_t table, const uint32_t key, void* data, size_t size) {
 
 void
 DB::set(uint32_t table, const String& key, void* data, size_t size) {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -194,6 +210,7 @@ DB::set(uint32_t table, const String& key, void* data, size_t size) {
 
 void
 DB::sync() {
+	cassert(db != NULL);
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_sync(db);
@@ -203,6 +220,7 @@ DB::sync() {
 
 uint32_t
 DB::n_select(const String& name) {
+	cassert(db != NULL);
 	uint32_t tableno = 0;
 	try {
 		s_create(1);
@@ -232,6 +250,7 @@ DB::n_select(const String& name) {
 
 uint32_t
 DB::s_select(const String& name) {
+	cassert(db != NULL);
 	uint32_t tableno = 0;
 	try {
 		s_create(1);

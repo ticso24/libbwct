@@ -25,7 +25,9 @@ protected:
 	DB(const DB& tmp);
 public:
 	DB(const String& filename, int flags = 0, uint mode = 600);
+	DB();
 	~DB();
+	void open(const String& filename, int flags = 0, uint mode = 600);
 	void del(uint32_t num);
 	void del(uint32_t table, const uint32_t key);
 	void del(uint32_t table, const String& key);
