@@ -288,6 +288,7 @@ public:
 	}
 };
 
+/* simplified array for integral data types */
 template <class T>
 class SArray : public Base {
 private:

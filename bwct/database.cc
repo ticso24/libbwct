@@ -350,3 +350,194 @@ DB::StringTable::set(const String& key, Obj& dobj) {
 	db.set(tableno, key, data, size);
 }
 
+DB::Obj::Obj() {
+	dirty = false;
+}
+
+DB::Obj::~Obj() {
+}
+
+bool
+DB::Obj::isdirty() {
+	return dirty;
+}
+
+size_t
+DB::Obj::init(void* data, size_t size) {
+	size_t tmp = 0;
+	for(int i = 0; i < sub.max; i++) {
+		tmp = sub[i]->init(data, size);
+		(char*)data += tmp;
+		size -= tmp;
+	}
+	return tmp;
+}
+
+size_t
+DB::Obj::calcsize() {
+	size_t ret = 0;
+	for(int i = 0; i < sub.max; i++) {
+		ret += sub[i]->calcsize();
+	}
+	return ret;
+}
+
+size_t
+DB::Obj::read(void* data, size_t size) {
+	size_t tmp = 0;
+	for(int i = 0; i < sub.max; i++) {
+		tmp = sub[i]->read(data, size);
+		(char*)data += tmp;
+		size -= tmp;
+	}
+	return tmp;
+}
+
+void
+DB::NumTable::get(const uint32_t key, void** data, size_t* size) {
+	db.get(tableno, key, data, size);
+}
+
+void
+DB::NumTable::set(const uint32_t key, void* data, size_t size) {
+	db.set(tableno, key, data, size);
+}
+
+DB::NumTable::NumTable(DB& ndb, const String& name)
+    : tablename(name), db(ndb) {
+	tableno = db.n_select(name);
+}
+
+void
+DB::NumTable::del(const uint32_t key) {
+	db.del(tableno, key);
+}
+
+void
+DB::StringTable::get(const String& key, void** data, size_t* size) {
+	db.get(tableno, key, data, size);
+}
+
+void
+DB::StringTable::set(const String& key, void* data, size_t size) {
+	db.set(tableno, key, data, size);
+}
+
+DB::StringTable::StringTable(DB& ndb, const String& name)
+    : tablename(name), db(ndb) {
+	tableno = db.s_select(name);
+}
+
+void
+DB::StringTable::del(const String& key) {
+	db.del(tableno, key);
+}
+
+DB::DBString::DBString() {
+}
+
+size_t
+DB::DBString::calcsize() {
+	size_t size = str.length() + 1;
+	size += Obj::calcsize();
+	return size;
+}
+
+size_t
+DB::DBString::init(void* data, size_t size) {
+	cassert(size >= (size_t)str.length() + 1);
+	bcopy(data, (void*)str.c_str(), str.length() + 1);
+	(char*)data += str.length() + 1;
+	size -= str.length() + 1;
+	return Obj::init(data, size);
+}
+
+size_t
+DB::DBString::read(void* data, size_t size) {
+	str = (char*)data;
+	cassert(size >= (size_t)str.length() + 1);
+	(char*)data += str.length() + 1;
+	size -= str.length() + 1;
+	return Obj::read(data, size);
+}
+
+DB::DBString::operator const String&() const {
+	return str;
+}
+
+const String&
+DB::DBString::operator=(const String& rhs) {
+	dirty = true;
+	str = rhs;
+	return str;
+}
+
+DB::DBint64::DBint64() {
+}
+
+size_t
+DB::DBint64::calcsize() {
+	return sizeof(num);
+}
+
+size_t
+DB::DBint64::init(void* data, size_t size) {
+	cassert(size >= sizeof(num));
+	uint32_t data1, data2;
+	data2 = htonl(num & 0xffffffff);
+	data1 = htonl(num >> 32);
+	bcopy(data, &data1, sizeof(data1));
+	bcopy((char*)data + sizeof(data1), &data2, sizeof(data2));
+	return sizeof(num);
+}
+
+size_t
+DB::DBint64::read(void* data, size_t size) {
+	cassert(size >= sizeof(num));
+	uint32_t data1, data2;
+	bcopy(&data1, data, sizeof(data1));
+	bcopy(&data2, (char*)data + sizeof(data1), sizeof(data2));
+	num = ((uint64_t)ntohl(data1)) << 32 | ntohl(data2);
+	return sizeof(num);
+}
+
+DB::DBint64::operator uint64_t() const {
+	return num;
+}
+
+uint64_t
+DB::DBint64::operator=(uint64_t rhs) {
+	dirty = true;
+	num = rhs;
+	return num;
+}
+
+DB::String_idx::String_idx(DB& ndb, const String& name) :
+    table(ndb, name) {
+    sub[0] = &key;
+}
+
+DB::String_idx::~String_idx() {
+// TODO
+}
+
+void
+DB::String_idx::del() {
+	table.del(key);
+}
+
+DB::Num64_idx::Num64_idx(DB& ndb, const String& name) :
+    table(ndb, name) {
+    sub[0] = &key;
+}
+
+DB::Num64_idx::~Num64_idx() {
+// TODO
+}
+
+void 
+DB::Num64_idx::del() {
+	const uint64_t& tmp = key;
+	table.del(tmp);
+}
+
