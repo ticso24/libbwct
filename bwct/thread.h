@@ -69,6 +69,17 @@ class Mutex : public Base {
 private:
 	Mutex(Mutex &src);
 public:
+	class Guard : public Base {
+	private:
+		Mutex *mtx;
+		int locked;
+	public:
+		Guard(Mutex& nmtx, bool lck = true);
+		~Guard();
+		void lock();
+		void unlock();
+	};
+
 	Mutex() {};
 	~Mutex() {};
 	int lock() {
@@ -87,17 +98,6 @@ public:
 	};
 };
 #endif
-
-class Mtx_Guard : public Base {
-private:
-	Mutex *mtx;
-	int locked;
-public:
-	Mtx_Guard(Mutex& nmtx);
-	~Mtx_Guard();
-	void lock();
-	void unlock();
-};
 
 #ifdef HAVE_PTHREAD
 class CV : public Base {

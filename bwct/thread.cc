@@ -134,25 +134,27 @@ Mutex::setdead() {
 	dead = 1;
 }
 
-Mtx_Guard::Mtx_Guard(Mutex& nmtx) {
+Mutex::Guard::Guard(Mutex& nmtx, bool lck) {
 	mtx = &nmtx;
 	locked = 0;
+	if (lck)
+		lock();
 }
 
-Mtx_Guard::~Mtx_Guard() {
+Mutex::Guard::~Guard() {
 	if (locked == 1)
 		mtx->unlock();
 }
 
 void
-Mtx_Guard::lock() {
+Mutex::Guard::lock() {
 	cassert (locked == 0);
 	mtx->lock();
 	locked = 1;
 }
 
 void
-Mtx_Guard::unlock() {
+Mutex::Guard::unlock() {
 	cassert (locked == 1);
 	mtx->unlock();
 	locked = 0;
