@@ -635,7 +635,7 @@ uint64_t gettimesec(void);
 String sgethostname();
 uint64_t genid();
 String tohex(char *data, int size);
-String genmd5id();
+//String genmd5id();
 uint64_t getdate();
 
 #endif /* !_TOOL */

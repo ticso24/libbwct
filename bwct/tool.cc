@@ -436,6 +436,7 @@ tohex(char *data, int size) {
 	}
 }
 
+/*
 String
 genmd5id() {
 	uint64_t id = genid(); 
@@ -446,6 +447,7 @@ genmd5id() {
 	MD5Final(digest, &ctx);
 	return tohex(digest, 16);
 }
+*/
 
 uint64_t
 getdate() {
