@@ -101,19 +101,26 @@ acx_pthread_flags="pthreads none -Kthread -kthread lthread -pthread -pthreads -m
 case "${host_cpu}-${host_os}" in
         *netbsd*)
         : ${LOCALBASE:=/usr/pkg}
-	if test ! -d $LOCALBASE/pthreads
+	if test -f /usr/pkg/include/pthread.h
 	then
+		echo "$ac_t""GNU pth" 1>&6
+		pkg="$LOCALBASE"
+		lib1="-L/usr/pkg/lib"
+		lib2="-lpthread"
+	elif test -d $LOCALBASE/pthreads
+	then
+		echo "$ac_t""mit-pthreads/unproven-pthreads" 1>&6
+		pkg="$LOCALBASE/pthreads"
+		lib1="-L$pkg/lib -Wl,-R$pkg/lib"
+		lib2="-lm -lgcc -lpthread"
+	else
 		echo "$ac_t""none" 1>&6
 		{ echo "configure: error: "could not find thread libraries"" 1>&2; exit 1; }
 	fi
-        echo "$ac_t""mit-pthreads/unproven-pthreads" 1>&6
-        pkg="$LOCALBASE/pthreads"
-        lib1="-L$pkg/lib -Wl,-R$pkg/lib"
-	lib2="-lm -lgcc -lpthread"
-        LIBS="$lib1 $lib2 $LIBS"
-        CPPFLAGS="$CPPFLAGS -I$pkg/include"
-        STD_CINCLUDES="$STD_CINCLUDES -I$pkg/include"
-        acx_pthread_flags="-lpthread"
+	LIBS="$lib1 $lib2 $LIBS"
+	CPPFLAGS="$CPPFLAGS -I$pkg/include"
+	STD_CINCLUDES="$STD_CINCLUDES -I$pkg/include"
+	acx_pthread_flags="-lpthread"
         ;;
 
         *solaris*)
