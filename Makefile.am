@@ -8,9 +8,10 @@
 # $Rev$
 #
 
-includedir = $(DESTDIR)$(prefix)/include/bwct
+includedir =		$(DESTDIR)$(prefix)/include/bwct
 bin_SCRIPTS =		libbwct-config
-dist_data_DATA =	INSTALL
+EXTRA_DIST =		INSTALL \
+			libbwct.m4
 lib_LIBRARIES =		libbwct.a
 include_HEADERS =	bwct/base.h \
 			bwct/bwct.h \
@@ -37,6 +38,9 @@ libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/network.cc \
 			bwct/compress.cc \
 			bwct/database.cc
+m4datadir =		$(datadir)/aclocal
+m4data_DATA =		aclocal/libbwct.m4
 
-
+all-local:
+	@echo "*** Everything completed ***"
 
