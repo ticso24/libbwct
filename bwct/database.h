@@ -73,10 +73,21 @@ public:
 				db.set(1, name, &tableno, sizeof(int));
 			}
 		}
-		void get(const String& key, T& dobj) {
+		bool exists(const String& key) {
 			void *data;
 			size_t size;
 			db.get(tableno, key, &data, &size);
+			if (data == NULL)
+				return false;
+			db.free(data);
+			return true;
+		}
+		bool get(const String& key, T& dobj) {
+			void *data;
+			size_t size;
+			db.get(tableno, key, &data, &size);
+			if (data == NULL)
+				return false;
 			try {
 				dobj.init(data, size);
 			} catch (...) {
@@ -84,6 +95,7 @@ public:
 				throw;
 			}
 			db.free(data);
+			return true;
 		}
 		void set(const String& key, T& dobj) {
 			void *data;
