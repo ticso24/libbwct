@@ -75,9 +75,9 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		if (res == 0) break;
 	} while ((info = info->ai_next) != NULL);
 	if (res != 0) {
+		freeaddrinfo(infosave);
 		throw Error(String("connecting [") + name + "]:" +
 		    port + " failed");
-		freeaddrinfo(infosave);
 	}
 	peeraddr = "";
 	peername = info->ai_canonname;
@@ -167,6 +167,10 @@ Network::Net::retrievepeername() {
 		peername = sgethostname();
 		return 0;
 	}
+
+	res = ::getpeername(fd, addr, &addrlen);
+	if (res < 0)
+		goto failed;
 
 	/* get the reversemapping and portname for the client */
 	getnameinfo(addr, addrlen, name.get(), NI_MAXHOST, NULL, 0, 0);
@@ -268,27 +272,20 @@ Network::Listen::loop() {
 		} while (res < 0);
 		for (int i = 0; i <= maxfd; i++) {
 			if (FD_ISSET(i, &fds)) {
-				beepme();
 				int clientfd = accept(i, NULL, NULL);
 				if (clientfd < 0 ) {
 					if (errno == EINTR || errno == EAGAIN)
 						continue;
 				} else {
-					beepme();
 					try {
-						beepme();
 						// makestarter a virtual Listen function
 						FTask *newthread = newtask();
 						cassert(newthread != NULL);
-						beepme();
 						newthread->setfile(newcon(clientfd));
 						newthread->start();
-						beepme();
 					} catch (std::exception& e) {
-						beepme();
 						syslog(LOG_INFO, "exception: %s", e.what());
 					} catch (...) {
-						beepme();
 						syslog(LOG_INFO, "unknown exception");
 					}
 				}

@@ -42,7 +42,7 @@ Thread::starthelp(void *data) {
 		syslog(LOG_DEBUG, "exception");
 	}
 	((Thread*)data)->threadend();
-	pthread_exit(NULL);
+//	pthread_exit(NULL);
 	return NULL;
 }
 

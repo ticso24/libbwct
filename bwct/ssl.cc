@@ -90,7 +90,6 @@ CSSL::Network::writev(SArray<struct iovec>& data) {
 // TODO: disable Nagle (TCP_NODELAY) on socket
 void
 CSSL::Network::saccept() {
-	beepme();
 	cassert(sc != NULL);
 	ssl = SSL_new(sc->sslContext);
 	if (ssl == NULL)
@@ -125,7 +124,6 @@ CSSL::Network::saccept() {
 // TODO: disable Nagle (TCP_NODELAY) on socket
 void
 CSSL::Network::sconnect() {
-	beepme();
 	cassert(sc != NULL);
 	ssl = SSL_new(sc->sslContext);
 	if (ssl == NULL)

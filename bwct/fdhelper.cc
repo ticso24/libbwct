@@ -85,7 +85,7 @@ File::readv(SArray<struct iovec>& data) {
 			}
 		}
 	}
-	syslog(LOG_INFO, "%s readv = %lld", tinfo().c_str(), LL(nread));
+	//syslog(LOG_INFO, "%s readv = %lld", tinfo().c_str(), LL(nread));
 	return nread;
 }
 
@@ -124,7 +124,7 @@ File::writev(SArray<struct iovec>& data) {
 			}
 		}
 	}
-	syslog(LOG_INFO, "%s writev = %lld", tinfo().c_str(), LL(nwriten));
+	//syslog(LOG_INFO, "%s writev = %lld", tinfo().c_str(), LL(nwriten));
 	return nwriten;
 }
 
@@ -133,7 +133,7 @@ File::read(void *vptr, size_t n) {
 	cassert(opened());
 	flush();
 	ssize_t nread = readn(vptr, n);
-	syslog(LOG_INFO, "%s read = %lld", tinfo().c_str(), LL(nread));
+	//syslog(LOG_INFO, "%s read = %lld", tinfo().c_str(), LL(nread));
 	return nread;
 }
 
@@ -141,7 +141,7 @@ ssize_t
 File::write(const void *vptr, size_t n) {
 	cassert(opened());
 	ssize_t nwriten = writen(vptr, n);
-	syslog(LOG_INFO, "%s write = %lld", tinfo().c_str(), LL(nwriten));
+	//syslog(LOG_INFO, "%s write = %lld", tinfo().c_str(), LL(nwriten));
 	return nwriten;
 }
 

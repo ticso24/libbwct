@@ -21,8 +21,8 @@ class File : public Base {
 protected:
 	int fd;
 	String filename;
-	virtual ssize_t microread(void *vptr, size_t n);
-	virtual ssize_t microwrite(const void *vptr, size_t n);
+	virtual ssize_t readn(void *vptr, size_t n);
+	virtual ssize_t writen(const void *vptr, size_t n);
 public:
 	virtual int opened() const;
 	File();
@@ -30,6 +30,8 @@ public:
 	~File();
 	virtual void close();
 	virtual int flush();
+	virtual ssize_t microread(void *vptr, size_t n);
+	virtual ssize_t microwrite(const void *vptr, size_t n);
 	virtual ssize_t read(void *vptr, size_t n);
 	virtual ssize_t write(const void *vptr, size_t n);
 	virtual ssize_t readv(SArray<struct iovec>& data);
@@ -40,8 +42,6 @@ public:
 	virtual int ioctl(unsigned long request, void *argp = NULL);
 	virtual void waitread();
 	virtual void waitwrite();
-	virtual ssize_t readn(void *vptr, size_t n);
-	virtual ssize_t writen(const void *vptr, size_t n);
 	virtual void ncox();
 	virtual void cox();
 	virtual String tinfo() const;
