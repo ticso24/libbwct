@@ -15,8 +15,12 @@ void
 CSSL::init() {
 	SSL_load_error_strings();
 	SSL_library_init();
-	if (!RAND_load_file(RANDOM, 1024 * 1024)
-		throw Error("Couldn't load randomness")
+//	buffer char[MAX_PATH];
+//	const char *randname = RAND_file_name(buffer, sizeof(buffer));
+//	if (randname == NULL)
+//		throw Error("Coudn't get random file");
+//	if (!RAND_load_file(randname, 1024 * 1024)
+//		throw Error("Couldn't load randomness")
 }
 
 CSSL::Network::Network(Context *sc) {
@@ -255,5 +259,107 @@ CSSL::Context::ssl_temp_rsa_cb(SSL *ssl, int exp, int keylength) {
 	if (rsa == NULL)
 		rsa = RSA_generate_key(512, RSA_F4, NULL, NULL);
 	return rsa;
+}
+
+void
+CSSL::PKCS7::cleanup() {
+	if (ssl != NULL)
+		SSL_free(ssl);
+	cassert(certs == NULL);
+	delete sc;
+}
+
+CSSL::PKCS7::PKCS7(Context *sc) {
+	ssl = NULL;
+	certs = NULL;
+	cassert (sc != NULL);
+	(this)->sc = sc;
+	try {
+		ssl = SSL_new(sc->sslContext);
+		if (ssl == NULL)
+			throw Error(String("SSL: Error allocating handle: ") +
+			    ERR_error_string(ERR_get_error(), NULL));
+		x509 = SSL_get_certificate(ssl);
+		if (x509 == NULL)
+			throw Error("failed to get an X509 structure");
+		store = SSL_CTX_get_cert_store(sc->sslContext);
+		if (store == NULL)
+			throw Error("failed to get an X509_STORE structure");
+	} catch (...) {
+		cleanup();
+		throw;
+	}
+}
+
+CSSL::PKCS7::~PKCS7() {
+	cleanup();
+}
+
+ssize_t
+CSSL::PKCS7::check(char *in, ssize_t insize, char* out, ssize_t outsize) {
+	cassert(x509 != NULL);
+	BIO *bin = NULL;
+	BIO *bout = NULL;
+	try {
+		bin = BIO_new(BIO_s_mem());
+		if (bin == NULL)
+			throw Error("failed to allocate BIO");
+		bout = BIO_new(BIO_s_mem());
+		if (bout == NULL)
+			throw Error("failed to allocate BIO");
+		BIO_write(bin, in, insize);
+		::PKCS7 *pkcs7;
+		BIO_reset(bout);
+		pkcs7 = SMIME_read_PKCS7(bin, NULL);
+		if (pkcs7 == NULL)
+			throw Error("failed to read signed message");
+		int res;
+		res = PKCS7_verify(pkcs7, certs, store, bin, bout, 0);
+		if (res != 0)
+			throw Error("failed to verify signed message");
+		size_t ret = BIO_read(bout, out, outsize);
+		BIO_free_all(bin);
+		BIO_free_all(bout);
+		return ret;
+	} catch (...) {
+		if (bin != NULL)
+			BIO_free_all(bin);
+		if (bout != NULL)
+			BIO_free_all(bout);
+		throw;
+	}
+}
+
+ssize_t
+CSSL::PKCS7::sign(char *in, ssize_t insize, char* out, ssize_t outsize) {
+	cassert(x509 != NULL);
+	BIO *bin = NULL;
+	BIO *bout = NULL;
+	try {
+		bin = BIO_new(BIO_s_mem());
+		if (bin == NULL)
+			throw Error("failed to allocate BIO");
+		bout = BIO_new(BIO_s_mem());
+		if (bout == NULL)
+			throw Error("failed to allocate BIO");
+		BIO_write(bin, in, insize);
+		::PKCS7 *pkcs7;
+		pkcs7 = PKCS7_sign(x509, NULL, NULL, bin, 0);
+		if (pkcs7 == NULL)
+			throw Error("failed to sign message");
+		BIO_reset(bout);
+		if (SMIME_write_PKCS7(bout, pkcs7, bin, 0) != 0)
+			throw Error("failed to sign message");
+		size_t ret = BIO_read(bout, out, outsize);
+		BIO_free_all(bin);
+		BIO_free_all(bout);
+		return ret;
+	} catch (...) {
+		if (bin != NULL)
+			BIO_free_all(bin);
+		if (bout != NULL)
+			BIO_free_all(bout);
+		throw;
+	}
 }
 
