@@ -18,7 +18,6 @@ class CV;
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif
-#include <bwct/cbackup.h>
 #include <bwct/tool.h>
 
 class Thread : public Base {

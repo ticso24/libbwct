@@ -13,11 +13,7 @@
 
 #include <bwct/config.h>
 
-#define CHUNKSIZE 2*1024*1024
 #define SOCKSBUF 65536
-#define MBLK 8192
-#define UDS_PATH "/tmp/.cbackup"
-#define IP_PORT "cbackup"
 
 #include <sys/param.h>
 

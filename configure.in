@@ -154,12 +154,6 @@ ACX_PTHREAD([
 	echo "using forked daemon"
 	]) 
 
-AC_ARG_WITH(db-path,
-[  --with-db-path=PATH
-                          PATH where master server databases are
-			  (default /var/db/cbackup)]
-, db_path=$withval, db_path="/var/db/cbackup")
-
 AC_DEFINE_UNQUOTED(DB_PATH, "$db_path", [set path for databases on master server])
 
 AC_ARG_WITH(openssl-prefix,
@@ -186,23 +180,6 @@ fi
 AC_SUBST(HAVE_SSL)
 
 AC_LANG_CPLUSPLUS
-
-# TODO work without these
-## search for libsigc++
-AM_PATH_SIGC(1.0.1,,[
-	echo "no"
-	AC_DEFINE(NOGUI, 1, [can't build GUI client])
-	SUBGUI=""
-])
-AM_PATH_GTKMM(1.2.4,,[
-	echo "no"
-	AC_DEFINE(NOGUI, 1, [can't build GUI client])
-	SUBGUI=""
-])
-CXXFLAGS="$CXXFLAGS $GTKMM_CFLAGS"
-LIBS="$LIBS $GTKMM_LIBS"
-
-AC_SUBST(SUBGUI)
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT

@@ -16,26 +16,26 @@ class File;
 #include <bwct/config.h>
 #include <bwct/tool.h>
 
-#define cbackup_string String
+#define bwct_string String
 
 #ifndef HAS_UINT64_T
-# define cbackup_u64 unsigned long long
+# define bwct_u64 unsigned long long
 #else
-# define cbackup_u64 uint64_t
+# define bwct_u64 uint64_t
 #endif
 
 #ifndef HAS_UINTX_T
-# define cbackup_u32 u_int32_t
-# define cbackup_u16 u_int16_t
-# define cbackup_u8 u_int8_t
+# define bwct_u32 u_int32_t
+# define bwct_u16 u_int16_t
+# define bwct_u8 u_int8_t
 #else
-# define cbackup_u32 uint32_t
-# define cbackup_u16 uint16_t
-# define cbackup_u8 uint8_t
+# define bwct_u32 uint32_t
+# define bwct_u16 uint16_t
+# define bwct_u8 uint8_t
 #endif
 
-#define bool_t cbackup_u32
-#define enum_t cbackup_u32
+#define bool_t bwct_u32
+#define enum_t bwct_u32
 #define TRUE 1
 #define FALSE 0
 
@@ -51,11 +51,11 @@ public:
 	File *file;
 };
 
-bool_t xdr_cbackup_string(XDR *, cbackup_string *);
-bool_t xdr_cbackup_u64(XDR *, cbackup_u64 *);
-bool_t xdr_cbackup_u32(XDR *, cbackup_u32 *);
-bool_t xdr_cbackup_u16(XDR *, cbackup_u16 *);
-bool_t xdr_cbackup_u8(XDR *, cbackup_u8 *);
+bool_t xdr_bwct_string(XDR *, bwct_string *);
+bool_t xdr_bwct_u64(XDR *, bwct_u64 *);
+bool_t xdr_bwct_u32(XDR *, bwct_u32 *);
+bool_t xdr_bwct_u16(XDR *, bwct_u16 *);
+bool_t xdr_bwct_u8(XDR *, bwct_u8 *);
 bool_t xdr_enum(XDR *, enum_t *);
 
 class command;

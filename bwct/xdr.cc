@@ -15,7 +15,7 @@
 #include <bwct/fdhelper.h>
 
 bool_t
-xdr_cbackup_string(XDR *xdrs, cbackup_string *objp) {
+xdr_bwct_string(XDR *xdrs, bwct_string *objp) {
 	bool_t res;
 	ssize_t sz;
 	uint32_t len;
@@ -25,7 +25,7 @@ xdr_cbackup_string(XDR *xdrs, cbackup_string *objp) {
 		return TRUE;
 	case XDR_ENCODE:
 		len = objp->length() + 1;
-		res = xdr_cbackup_u32(xdrs, &len);
+		res = xdr_bwct_u32(xdrs, &len);
 		if (res == FALSE)
 			return FALSE;
 		sz = xdrs->file->write(objp->c_str(), len);
@@ -33,7 +33,7 @@ xdr_cbackup_string(XDR *xdrs, cbackup_string *objp) {
 			return TRUE;
 		break;
 	case XDR_DECODE:
-		res = xdr_cbackup_u32(xdrs, &len);
+		res = xdr_bwct_u32(xdrs, &len);
 		if (res == FALSE || len > 4096)
 			return FALSE;
 		Matrix<char> str(len);
@@ -48,9 +48,9 @@ xdr_cbackup_string(XDR *xdrs, cbackup_string *objp) {
 }
 
 bool_t
-xdr_cbackup_u64(XDR *xdrs, cbackup_u64 *objp) {
+xdr_bwct_u64(XDR *xdrs, bwct_u64 *objp) {
 	ssize_t sz;
-	cbackup_u32 data1, data2;
+	bwct_u32 data1, data2;
 
 	switch (xdrs->x_op) {
 	case XDR_FREE:
@@ -72,16 +72,16 @@ xdr_cbackup_u64(XDR *xdrs, cbackup_u64 *objp) {
 		sz = xdrs->file->read(&data2, sizeof(data2));
 		if (sz != sizeof(data2))
 			return FALSE;
-		*objp = ((cbackup_u64)ntohl(data1)) << 32 | ntohl(data2);
+		*objp = ((bwct_u64)ntohl(data1)) << 32 | ntohl(data2);
 		return TRUE;
 	}
 	return FALSE;
 }
 
 bool_t
-xdr_cbackup_u32(XDR *xdrs, cbackup_u32 *objp) {
+xdr_bwct_u32(XDR *xdrs, bwct_u32 *objp) {
 	ssize_t sz;
-	cbackup_u32 data;
+	bwct_u32 data;
 
 	switch (xdrs->x_op) {
 	case XDR_FREE:
@@ -104,9 +104,9 @@ xdr_cbackup_u32(XDR *xdrs, cbackup_u32 *objp) {
 }
 
 bool_t
-xdr_cbackup_u16(XDR *xdrs, cbackup_u16 *objp) {
+xdr_bwct_u16(XDR *xdrs, bwct_u16 *objp) {
 	ssize_t sz;
-	cbackup_u16 data;
+	bwct_u16 data;
 
 	switch (xdrs->x_op) {
 	case XDR_FREE:
@@ -129,7 +129,7 @@ xdr_cbackup_u16(XDR *xdrs, cbackup_u16 *objp) {
 }
 
 bool_t
-xdr_cbackup_u8(XDR *xdrs, cbackup_u8 *objp) {
+xdr_bwct_u8(XDR *xdrs, bwct_u8 *objp) {
 	ssize_t sz;
 
 	switch (xdrs->x_op) {
@@ -151,7 +151,7 @@ xdr_cbackup_u8(XDR *xdrs, cbackup_u8 *objp) {
 
 bool_t
 xdr_enum(XDR *xdrs, enum_t *objp) {
-	return xdr_cbackup_u32(xdrs, objp);
+	return xdr_bwct_u32(xdrs, objp);
 }
 
 void
