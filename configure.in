@@ -11,8 +11,8 @@
 dnl Process this file with autoconf to produce a configure script.
 
 AC_INIT(libbwct, 0.7, [bernd@bwct.de])
-AC_CONFIG_SRCDIR(bwct/common.h)
-AM_INIT_AUTOMAKE(cbackup, 0.6)
+AC_CONFIG_SRCDIR(bwct/bwct.h)
+AM_INIT_AUTOMAKE(libbwct, 0.7)
 AM_CONFIG_HEADER(bwct/config.h)
 
 AC_ARG_ENABLE(mserver,
