@@ -37,7 +37,7 @@ public:
 	protected:
 		DB db;
 		int tableno;
-		String name;
+		const String tablename;
 		void get(const String& key, void** data, size_t* size) {
 			db.get(tableno, key, data, size);
 		}
@@ -45,8 +45,7 @@ public:
 			db.get(tableno, key, data, size);
 		}
 	public:
-		Table(DB& ndb, const String& name) {
-			(this)->name = name;
+		Table(DB& ndb, const String& name) : tablename(name) {
 			tableno = 0;
 			db = ndb;
 			try {
@@ -56,7 +55,7 @@ public:
 			try {
 				void *data;
 				size_t size;
-				db.get(1, name, &data, &size);
+				db.get(1, tablename, &data, &size);
 				if (size != sizeof(int))
 					throw Error("");
 				bcopy(&tableno, data, sizeof(int));
@@ -70,7 +69,7 @@ public:
 						tableno = 0;
 					}
 				} while (tableno == 0);
-				db.set(1, name, &tableno, sizeof(int));
+				db.set(1, tablename, &tableno, sizeof(int));
 			}
 		}
 		bool exists(const String& key) {
