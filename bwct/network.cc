@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -11,7 +11,7 @@
 #include <bwct/base.h>
 #include <bwct/network.h>
 
-Network::Network(int nfd) {
+Network::Net::Net(int nfd) {
 	fd = nfd;
 	cassert(opened());
 	canon = 0;
@@ -19,7 +19,7 @@ Network::Network(int nfd) {
 }
 
 void
-Network::connect_UDS (const String& path) {
+Network::Net::connect_UDS (const String& path) {
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	int val;
 	val = SOCKSBUF;
@@ -39,7 +39,7 @@ Network::connect_UDS (const String& path) {
 
 #ifdef HAVE_GETNAMEINFO
 void
-Network::connect_tcp(const String& name, const String& port, int family) {
+Network::Net::connect_tcp(const String& name, const String& port, int family) {
 	struct addrinfo *info;
 	struct addrinfo *infosave;
 	struct addrinfo hints;
@@ -87,7 +87,7 @@ Network::connect_tcp(const String& name, const String& port, int family) {
 #else
 
 void
-Network::connect_tcp(const String& name, const String& port, int family) {
+Network::Net::connect_tcp(const String& name, const String& port, int family) {
 	if (family == AF_UNSPEC)
 		family = AF_INET;
 	if (family != AF_INET)
@@ -134,7 +134,7 @@ Network::connect_tcp(const String& name, const String& port, int family) {
 
 #ifdef HAVE_GETNAMEINFO
 int
-Network::retrievepeername() {
+Network::Net::retrievepeername() {
 	struct addrinfo *addrn, *addr0;
 	struct addrinfo hints;
 	int res;
@@ -213,7 +213,7 @@ ok:
 #else
 
 int
-Network::retrievepeername() {
+Network::Net::retrievepeername() {
 	// TODO: implement
 	//       It's not essential as we use SSL-Certs CN.
 	peername = "";
@@ -224,7 +224,7 @@ Network::retrievepeername() {
 #endif
 
 void
-Network::waitread() {
+Network::Net::waitread() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
 
@@ -236,7 +236,7 @@ Network::waitread() {
 }
 
 void
-Network::waitwrite() {
+Network::Net::waitwrite() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
 	pfd.fd = fd;
@@ -247,7 +247,7 @@ Network::waitwrite() {
 }
 
 String
-Network::tinfo() const {
+Network::Net::tinfo() const {
 	String ret;
 	ret << "(" << typeid(*this).name() << "@" << this <<
 	    ", fd=" << fd << ", peer=" << peername << ")";
@@ -255,7 +255,7 @@ Network::tinfo() const {
 }
 
 int
-Listen::loop() {
+Network::Listen::loop() {
 	// TODO: use poll & kevent
 	cassert (maxfd >= 0);
 	for (;;) {
@@ -297,26 +297,27 @@ Listen::loop() {
 	}
 }
 
-Listen::Listen() {
+Network::Listen::Listen() {
 	maxfd = -1;
 	FD_ZERO(&lfds);
 }
 
-Listen::~Listen() {
+Network::Listen::~Listen() {
 	for(int i = 0; i < maxfd; i++)
 		if (FD_ISSET(i, &lfds))
 			close(i);
 }
 
 void
-Listen::addfd(int nfd) {
+Network::Listen::addfd(int nfd) {
 	// XXX: check for overflow
 	FD_SET(nfd, &lfds);
 	if (nfd > maxfd)
 		maxfd = nfd;
 }
 
-int Listen::add_UDS(const String& path, int flags) {
+int
+Network::Listen::add_UDS(const String& path, int flags) {
 	struct sockaddr_un aun;
 	int lfd;
 	int val;
@@ -342,7 +343,7 @@ int Listen::add_UDS(const String& path, int flags) {
 
 #ifdef HAVE_GETNAMEINFO
 int
-Listen::add_tcp(const String& name, const String& port, int family) {
+Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	struct addrinfo *info;
 	struct addrinfo *infosave;
 	struct addrinfo hints;
@@ -392,7 +393,7 @@ Listen::add_tcp(const String& name, const String& port, int family) {
 #else
 
 int
-Listen::add_tcp(const String& name, const String& port, int family) {
+Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	if (family == AF_UNSPEC)
 		family = AF_INET;
 	if (family != AF_INET)
@@ -438,7 +439,7 @@ Listen::add_tcp(const String& name, const String& port, int family) {
 #endif
 
 void
-Listen::ncox(int fd) {
+Network::Listen::ncox(int fd) {
 	cassert(fd >= 0);
 	int val = fcntl(fd, F_GETFD, 0);
 	cassert(val >= 0);
@@ -447,7 +448,7 @@ Listen::ncox(int fd) {
 }
 
 void
-Listen::cox(int fd) {
+Network::Listen::cox(int fd) {
 	cassert(fd >= 0);
 	int val = fcntl(fd, F_GETFD, 0);
 	cassert(val >= 0);
@@ -456,7 +457,7 @@ Listen::cox(int fd) {
 }
 
 Network *
-Listen::newcon(int clientfd) {
+Network::Listen::newcon(int clientfd) {
 	return new Network(clientfd);
 }
 

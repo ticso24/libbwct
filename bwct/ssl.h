@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -13,7 +13,7 @@
 
 #include <bwct/network.h>
 
-class CSSL {
+class CSSL : public Base {
 public:
 	static void init();
 	class Network;
@@ -28,7 +28,7 @@ public:
 		Context(const String& keyfile, const String& certdir);
 		~Context();
 	};
-	class Network : public ::Network {
+	class Network : public ::Network::Net {
 	private:
 		::SSL *ssl;
 		X509 *x509;
@@ -49,7 +49,7 @@ public:
 		    int family = AF_UNSPEC);
 	};
 
-	class Listen : public ::Listen {
+	class Listen : public ::Network::Listen {
 	private:
 		virtual ::Network *newcon(int clientfd);
 	};

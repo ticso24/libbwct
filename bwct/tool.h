@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -96,10 +96,35 @@ inline void cbswap64(uint64_t& data) {
 	tmp = tmp2[3]; tmp2[3] = tmp2[4]; tmp2[4] = tmp;
 }
 
-class Ftask;
+class Base {
+private:
+	int state;
+	int refcount;
+public:
+	void log(const String& str);
+	void check() const {
+
+		cassert(refcount >= 0);
+	}
+	Base () {
+
+		refcount = 0;
+//		log("create");
+	}
+	virtual ~Base () {
+
+		check();
+		cassert(refcount == 0);
+		refcount = -1;
+//		log("destroy");
+	}
+	void addref();
+	void delref();
+	virtual String tinfo() const;
+};
 
 template <class T>
-class Matrix {
+class Matrix : public Base {
 private:
 	T *data;
 	int num;
@@ -259,36 +284,8 @@ public:
 	}
 };
 
-class Base {
-private:
-	int state;
-	int refcount;
-public:
-	friend class Ftask;
-	void log(const String& str);
-	void check() const {
-
-		cassert(refcount >= 0);
-	}
-	Base () {
-
-		refcount = 0;
-//		log("create");
-	}
-	virtual ~Base () {
-
-		check();
-		cassert(refcount == 0);
-		refcount = -1;
-//		log("destroy");
-	}
-	void addref();
-	void delref();
-	virtual String tinfo() const;
-};
-
 template <class T>
-class SArray {
+class SArray : public Base {
 private:
 	int num_elem;
 	T *elements;

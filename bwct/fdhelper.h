@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -14,8 +14,8 @@
 class File;
 class Stat;
 
-#include <bwct/thread.h>
 #include <bwct/tool.h>
+#include <bwct/thread.h>
 
 class File : public Base {
 protected:
@@ -120,7 +120,7 @@ public:
 	int is_dir();
 };
 
-class Dir {
+class Dir : public Base {
 private:
 	DIR *dir;
 #if HAVE_READDIR64

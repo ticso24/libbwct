@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -44,7 +44,7 @@ enum xdr_ops {
 	XDR_FREE=2
 };
 
-class XDR {
+class XDR : public Base {
 public:
 	enum xdr_ops x_op;
 	File *file;
