@@ -11,8 +11,6 @@
 #ifndef _TOOL
 #define _TOOL
 
-#include <bwct/base.h>
-
 class Base;
 
 template <class T>

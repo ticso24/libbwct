@@ -13,7 +13,6 @@
 
 class File;
 
-#include <bwct/base.h>
 #include <bwct/tool.h>
 
 #define bwct_string String
