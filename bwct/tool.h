@@ -316,9 +316,34 @@ SArray<T>::SArray () {
 }
 
 template <class T>
+SArray<T>::SArray (const SArray &src) {
+
+	max = src.max;
+	num_elem = src.num_elem;
+	elements = (T *)calloc(num_elem, sizeof(T));
+	if (!elements)
+		throw std::bad_alloc();
+	bcopy(src.elements, elements, num_elem * sizeof(T));
+}
+
+template <class T>
 SArray<T>::~SArray () {
 
 	free (elements);
+}
+
+template <class T>
+const T&
+SArray<T>::operator= (const SArray &src) {
+
+	free (elements);
+	max = src.max;
+	num_elem = src.num_elem;
+	elements = (T *)calloc(num_elem, sizeof(T));
+	if (!elements)
+		throw std::bad_alloc();
+	bcopy(src.elements, elements, num_elem * sizeof(T));
+	return *this;
 }
 
 template <class T>
