@@ -76,7 +76,10 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		    port + " failed");
 	}
 	do {
-		int fd = socket(family, SOCK_STREAM, PF_INET);
+		fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+		if (!opened()) {
+			throw Error("failed to get socket");
+		}
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
 		val = SOCKSBUF;
@@ -87,14 +90,13 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 			fcntl(fd, F_SETFL, val | O_NONBLOCK);
 			break;
 		} else {
-			::close (fd);
-			fd = -1;
+			close();
 		}
 	} while ((info = info->ai_next) != NULL);
 	if (res != 0) {
 		freeaddrinfo(infosave);
 		throw Error(String("connecting [") + name + "]:" +
-		    port + " failed");
+		    port + " failed: " + strerror(errno));
 	}
 	peeraddr = "";
 	peername = info->ai_canonname;
@@ -127,17 +129,21 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		sa->sin_port = sent->s_port;
 		bcopy (&hent->h_addr_list[i], &(sa->sin_addr),
 		    hent->h_length);
-		int fd = socket(family, SOCK_STREAM, PF_INET);
+		fd = socket(family, SOCK_STREAM, PF_INET);
 		int val;
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 		val = fcntl(fd, F_GETFL, 0);
-		fcntl(fd, F_SETFL, val | O_NONBLOCK);
 		res = connect(fd, (sockaddr*)sa.get(),
 		    sizeof(struct sockaddr_in));
-		if (res == 0) break;
+		if (res == 0) {
+			fcntl(fd, F_SETFL, val | O_NONBLOCK);
+			break;
+		} else {
+			close();
+		}
 		i++;
 	} while (hent->h_addr_list[i] != NULL);
 	if (res != 0) {
