@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Bernd Walter Computer Technology
+ * Copyright (c) 2002,03 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
