@@ -8,7 +8,7 @@
  * $Rev$
  */
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/keytable.h>
 #include <bwct/thread.h>
 

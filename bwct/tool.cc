@@ -8,7 +8,7 @@
  * $Rev$
  */
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/bsd.h>
 #include <bwct/tool.h>
 
@@ -424,10 +424,10 @@ genid() {
 String
 tohex(char *data, int size) {
 	String ret;
-	int nibble;
 	char val[3];
 	val[2] = '\0';
-	for (i = 0; i < size; i++) {
+	for (int i = 0; i < size; i++) {
+		int nibble;
 		nibble = (data[i] & 0xf0) >> 4;
 		val[0] = (nibble > 9) ? 'a' + nibble - 10 : '0' + nibble;
 		nibble = data[i] & 0x0f;

@@ -8,7 +8,7 @@
  * $Rev$
  */
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/compress.h>
 
 Cmpfile::Cmpfile() {

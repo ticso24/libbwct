@@ -43,7 +43,7 @@
  * $FreeBSD: src/lib/libc/gen/daemon.c,v 1.4 2001/01/24 12:59:21 deischen Exp $
  */
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/bsd.h>
 #include <bwct/tool.h>
 

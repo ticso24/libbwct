@@ -8,7 +8,7 @@
  * $Rev$
  */
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/network.h>
 
 Network::Network(int nfd) {
