@@ -65,7 +65,7 @@ File::readv(SArray<struct iovec>& data) {
 		if (sz == 0)
 			return nread;
 		if (sz < 0) {
-			if (errno != EAGAIN)
+			if (errno != EAGAIN && errno != EINTR)
 				return -1;
 			waitread();
 		}
@@ -104,7 +104,7 @@ File::writev(SArray<struct iovec>& data) {
 		if (sz == 0)
 			return nwriten;
 		if (sz < 0) {
-			if (errno != EAGAIN)
+			if (errno != EAGAIN && errno != EINTR)
 				return -1;
 			waitwrite();
 		}
@@ -152,7 +152,7 @@ File::readn(void *vptr, size_t n) {
 	while (nleft > 0) {
 		ssize_t nread;
 		if ((nread = microread(ptr, nleft)) < 0) {
-			if (errno != EAGAIN)
+			if (errno != EAGAIN && errno != EINTR)
 				return(nread);
 			nread = 0;
 			waitread();
@@ -173,7 +173,7 @@ File::writen(const void *vptr, size_t n) {
 	while (nleft > 0) {
 		ssize_t nwritten;
 		if ((nwritten = microwrite(ptr, nleft)) < 0) {
-			if (errno != EAGAIN)
+			if (errno != EAGAIN && errno != EINTR)
 				return(nwritten);
 			nwritten = 0;
 			waitwrite();

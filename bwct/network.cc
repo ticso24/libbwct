@@ -270,7 +270,7 @@ Network::Listen::loop() {
 				beepme();
 				int clientfd = accept(i, NULL, NULL);
 				if (clientfd < 0 ) {
-					if (errno == EINTR)
+					if (errno == EINTR || errno == EAGAIN)
 						continue;
 				} else {
 					beepme();

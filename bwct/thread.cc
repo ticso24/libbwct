@@ -56,7 +56,7 @@ Thread::start() {
 	detach(); // TODO make it an optional attribute
 #else
 	while ((id = fork()) == -1) {
-		if (id == -1 && errno != EAGAIN)
+		if (id == -1 && errno != EAGAIN && errno != EINTR)
 			throw Error("fork failed");
 		if (id == 0) {
 			starthelp(this);

@@ -83,7 +83,7 @@ Zfile::close() {
 			while (nleft > 0) {
 				ssize_t nwritten;
 				if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
-					if (errno != EAGAIN)
+					if (errno != EAGAIN && errno != EINTR)
 						throw Error("zflush failed");
 					nwritten = 0;
 					File::waitwrite();
@@ -140,7 +140,7 @@ Zfile::microread(void *vptr, size_t n) {
 		while (zs.avail_in == 0) {
 			ssize_t res = File::microread(inbuf->get(), inbuf->size());
 			if (res < 0) {
-				if (errno != EAGAIN)
+				if (errno != EAGAIN && errno != EINTR)
 					return res;
 				res = 0;
 				File::waitread();
@@ -216,7 +216,7 @@ Zfile::microwrite(const void *vptr, size_t n) {
 		while (nleft > 0) {
 			ssize_t nwritten;
 			if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
-				if (errno != EAGAIN)
+				if (errno != EAGAIN && errno != EINTR)
 					return(nwritten);
 				nwritten = 0;
 				File::waitwrite();
@@ -268,7 +268,7 @@ BZ2file::close() {
 			while (nleft > 0) {
 				ssize_t nwritten;
 				if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
-					if (errno != EAGAIN)
+					if (errno != EAGAIN && errno != EINTR)
 						throw Error("bzflush failed");
 					nwritten = 0;
 					File::waitwrite();
@@ -326,7 +326,7 @@ BZ2file::microread(void *vptr, size_t n) {
 			ssize_t res;
 			res = File::microread(inbuf->get(), inbuf->size());
 			if (res < 0) {
-				if (errno != EAGAIN)
+				if (errno != EAGAIN && errno != EINTR)
 					return res;
 				res = 0;
 				File::waitread();
@@ -402,7 +402,7 @@ BZ2file::microwrite(const void *vptr, size_t n) {
 		while (nleft > 0) {
 			ssize_t nwritten;
 			if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
-				if (errno != EAGAIN)
+				if (errno != EAGAIN && errno != EINTR)
 					return(nwritten);
 				nwritten = 0;
 				File::waitwrite();
