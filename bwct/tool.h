@@ -243,7 +243,7 @@ public:
 	Error(const char* msg) {
 		(this)->msg = msg;
 #ifdef DEBUG
-		syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
+		syslog(LOG_INFO, "Error thrown: %s", msg);
 #endif
 	}
 	Error(const String& msg = "") {
