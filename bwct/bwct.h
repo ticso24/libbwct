@@ -25,6 +25,6 @@
 #include <bwct/changer.h>
 #include <bwct/ssl.h>
 #include <bwct/compress.h>
-#include <bwct/db.h>
+#include <bwct/database.h>
 
 #endif /* !_COMMONH */
