@@ -15,6 +15,8 @@ void
 CSSL::init() {
 	SSL_load_error_strings();
 	SSL_library_init();
+	if (!RAND_load_file(RANDOM, 1024 * 1024)
+		throw Error("Couldn't load randomness")
 }
 
 CSSL::Network::Network(Context *sc) {
@@ -80,6 +82,7 @@ CSSL::Network::writev(SArray<struct iovec>& data) {
 	return nwritten;
 }
 
+// TODO: disable Nagle (TCP_NODELAY) on socket
 void
 CSSL::Network::saccept() {
 	beepme();
@@ -114,6 +117,7 @@ CSSL::Network::saccept() {
 	peername = buf;
 }
 
+// TODO: disable Nagle (TCP_NODELAY) on socket
 void
 CSSL::Network::sconnect() {
 	beepme();
