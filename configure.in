@@ -10,39 +10,10 @@
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(libbwct, 0.7, [bernd@bwct.de])
+AC_INIT([libbwct],[0.7],[bernd@bwct.de])
 AC_CONFIG_SRCDIR(bwct/bwct.h)
 AM_INIT_AUTOMAKE(libbwct, 0.7)
 AM_CONFIG_HEADER(bwct/config.h)
-
-AC_ARG_ENABLE(mserver,
-[  --disable-mserver      don't build media server code],
-enable_mserver=$enableval,
-enable_mserver=yes)
-
-if test x"$enable_mserver" = "xno"; then
-	AC_DEFINE(NOMSERVER, 1, [don't want media server])
-fi
-
-AC_ARG_ENABLE(server,
-[  --disable-server      don't build master server code],
-enable_server=$enableval,
-enable_server=yes)
-
-if test x"$enable_server" = "xno"; then
-	AC_DEFINE(NOSERVER, 1, [don't want master server])
-fi
-
-SUBGUI="gcbck"
-AC_ARG_ENABLE(gui,
-[  --disable-gui      don't build gui code],
-enable_gui=$enableval,
-enable_gui=yes)
-
-if test x"$enable_gui" = "xno"; then
-	AC_DEFINE(NOGUI, 1, [don't want gui])
-	SUBGUI=""
-fi
 
 AC_AIX
 
@@ -65,7 +36,7 @@ CFLAGS="$CFLAGS $CB_CFLAGS"
 
 dnl test using a C-compiler as there are some strange effects with some
 dnl generic tests using a c++ compiler
-AC_LANG_C
+AC_LANG([C])
 
 dnl Checks for libraries.
 dnl Replace `main' with a function in -le:
@@ -93,16 +64,14 @@ dnl Checks for typedefs, structures, and compiler characteristics.
 dnl AC_C_BIGENDIAN
 AC_TYPE_PID_T
 AC_TYPE_SIZE_T
-AC_STRUCT_ST_BLKSIZE
-AC_STRUCT_ST_BLOCKS
-AC_STRUCT_ST_RDEV
+
 AC_HEADER_TIME
 
 dnl Checks for library functions.
 dnl AC_PROG_GCC_TRADITIONAL
 AC_FUNC_MEMCMP
 AC_FUNC_MMAP
-AC_FUNC_VFORK
+AC_FUNC_FORK([])
 AC_CHECK_FUNCS(gethostname gettimeofday select socket strerror)
 AC_CHECK_FUNCS(daemon)
 AC_CHECK_FUNCS(bzero memset, break)
@@ -110,6 +79,13 @@ AC_CHECK_FUNCS(waitpid getnameinfo gai_strerror kqueue sigset)
 AC_CHECK_FUNCS(xdr_u_int64_t)
 AC_CHECK_FUNCS(open64)
 AC_CHECK_FUNCS(readdir64)
+AC_DEFINE(HAVE_X, 1, [dummy])
+
+AC_MSG_CHECKING(wether the system has IOV_MAX)
+AC_TRY_COMPILE([ #include <limits.h> ],
+	[ int foo = IOV_MAX],
+	[ AC_DEFINE(HAVE_IOV_MAX, 1, [define wether IOV_MAX is defined])
+	AC_MSG_RESULT(yes) ], AC_MSG_RESULT(no))
 
 AC_MSG_CHECKING(wether the system has socklen_t)
 AC_TRY_COMPILE([
@@ -118,12 +94,6 @@ AC_TRY_COMPILE([
 	],
 	[ socklen_t foo; ],
 	[ AC_DEFINE(HAVE_SOCKLEN_T, 1, [define wether socklen_t is defined])
-	AC_MSG_RESULT(yes) ], AC_MSG_RESULT(no))
-
-AC_MSG_CHECKING(wether the system has IOV_MAX)
-AC_TRY_COMPILE([ #include <limits.h> ],
-	[ int foo = IOV_MAX],
-	[ AC_DEFINE(HAVE_IOV_MAX, 1, [define wether IOV_MAX is defined])
 	AC_MSG_RESULT(yes) ], AC_MSG_RESULT(no))
 
 AC_MSG_CHECKING(wether the system has uintx types)
@@ -149,12 +119,8 @@ ACX_PTHREAD([
 	LIBS="$PTHREAD_LIBS $LIBS"
 	CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
 	], [
-	AC_DEFINE(NOMSERVER, 1, [can't build media server])
-	AC_DEFINE(NOSERVER, 1, [can't build master server])
-	echo "using forked daemon"
+	echo "using forked threads"
 	]) 
-
-AC_DEFINE_UNQUOTED(DB_PATH, "$db_path", [set path for databases on master server])
 
 AC_ARG_WITH(openssl-prefix,
 [  --with-openssl-prefix=PREFIX
@@ -179,7 +145,30 @@ else
 fi
 AC_SUBST(HAVE_SSL)
 
-AC_LANG_CPLUSPLUS
+AC_ARG_WITH(mird-prefix,
+[  --with-mird-prefix=PREFIX
+                          Prefix where mird is installed (optional)]
+, mird_config_prefix="$withval", mird_config_prefix="")
+
+for dir in $mird_config_prefix /usr/local /usr/lib /usr /usr /opt/mird; do
+    mirddir="$dir"
+    if test -f "$dir/include/mird.h"; then
+        found_mird="yes";
+        CXXFLAGS="$CXXFLAGS -I$mirddir/include -DHAVE_MIRD";
+        break;
+    fi
+done
+if test x_$found_mird != x_yes; then
+    AC_MSG_ERROR(Cannot find mird libraries)
+else
+    printf "mird found in $mirddir\n";
+    LIBS="$LIBS -lmird";
+    LDFLAGS="$LDFLAGS -L$mirddir/lib";
+    HAVE_MIRD=yes
+fi
+AC_SUBST(HAVE_MIRD)
+
+AC_LANG([C++])
 
 AC_CONFIG_FILES(Makefile)
 AC_OUTPUT
