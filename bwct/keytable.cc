@@ -14,12 +14,12 @@
 Database::Database(const String& filename, int flags, uint mode) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
-	res = mird_initialize(filename.c_str(), &db);
+	res = mird_initialize((char*)filename.c_str(), &db);
 	if (res != 0)
 		throw Error("init db failed");
 	db->flags |= flags;
 	db->cache_size = 1024;
-	db->filemode = mode;
+	db->file_mode = mode;
 	res = mird_open(db);
 	if (res != 0)
 		throw Error("open db failed");
@@ -49,7 +49,7 @@ Database::create(int num) {
 		if (res != 0) 
 			throw Error("Failed to create table");
 	} catch (...) {
-		res = mird_transaction_cancel);
+		res = mird_transaction_cancel(mtr);
 		if (res != 0) 
 			throw Error("Failed to cancel transaction");
 		throw;
@@ -68,11 +68,11 @@ Database::del(int num) {
 	if (res != 0) 
 		throw Error("Failed to create transaction");
 	try {
-		res = mird_s_key_del_table(mtr, num);
+		res = mird_delete_table(mtr, num);
 		if (res != 0) 
 			throw Error("Failed to delete table");
 	} catch (...) {
-		res = mird_transaction_cancel);
+		res = mird_transaction_cancel(mtr);
 		if (res != 0) 
 			throw Error("Failed to cancel transaction");
 		throw;
@@ -85,7 +85,7 @@ Database::del(int num) {
 void
 Database::free(void* data) {
 	if (data != NULL)
-		mird_free(data);
+		mird_free((unsigned char*)data);
 }
 
 void
@@ -93,7 +93,8 @@ Database::get(int table, const String& key, void** data, size_t* size) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_s_key_lookup(db, table,
-	    key.c_ptr(), key.length(), data, size);
+	    (unsigned char*)key.c_str(), key.length(),
+	    (unsigned char**)data, (mird_size_t*)size);
 	if (res != 0) 
 		throw Error("Failed to lookup key");
 }
@@ -108,11 +109,12 @@ Database::set(int table, const String& key, void* data, size_t size) {
 		throw Error("Failed to create transaction");
 	try {
 		res = mird_s_key_store(mtr, table,
-		    key.c_ptr(), key.length(), data, size);
+		    (unsigned char*)key.c_str(), key.length(),
+		    (unsigned char*)data, size);
 		if (res != 0) 
 			throw Error("Failed to set key");
 	} catch (...) {
-		res = mird_transaction_cancel);
+		res = mird_transaction_cancel(mtr);
 		if (res != 0) 
 			throw Error("Failed to cancel transaction");
 		throw;
