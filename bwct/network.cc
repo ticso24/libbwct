@@ -41,8 +41,10 @@ Network::Net::connect_UDS (const String& path) {
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, path.c_str());
 	val = fcntl(fd, F_GETFL, 0);
-	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
+	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+		close (fd);
 		throw Error(String("connecting ") + path + " failed");
+	}
 	fcntl(fd, F_SETFL, val | O_NONBLOCK);
 	peername = sgethostname();
 }
