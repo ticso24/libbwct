@@ -22,7 +22,7 @@
 #include <bwct/changer.h>
 #include <bwct/ssl.h>
 #include <bwct/compress.h>
-#include <bwct/database.h>
+//#include <bwct/database.h>
 
 #undef PACKAGE_BUGREPORT
 #undef PACKAGE_VERSION

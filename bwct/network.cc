@@ -20,8 +20,11 @@ Network::Net::Net(int nfd) {
 
 void
 Network::Net::nodelay(int flag) {
+	int val;
+
 	cassert(fd >= 0);
-	setsockopt(fd, SOL_SOCKET, TCP_NODELAY, &flag, sizeof(flag));
+	val = flag;
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &val, sizeof(val));
 }
 
 void
