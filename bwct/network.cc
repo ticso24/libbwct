@@ -19,6 +19,12 @@ Network::Net::Net(int nfd) {
 }
 
 void
+Network::Net::nodelay(int flag) {
+	cassert(fd >= 0);
+	setsockopt(fd, SOL_SOCKET, TCP_NODELAY, &flag, sizeof(flag));
+}
+
+void
 Network::Net::connect_UDS (const String& path) {
 	// XXX limit pathname!
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);

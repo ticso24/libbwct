@@ -398,13 +398,13 @@ void
 Base::addref() {
 	check();
 	refcount++;
-	syslog(LOG_DEBUG, "%s refno=%d", tinfo().c_str(), refcount);
+//	syslog(LOG_DEBUG, "%s refno=%d", tinfo().c_str(), refcount);
 }
 
 void
 Base::delref() {
 	check();
-	syslog(LOG_DEBUG, "%s refno=%d", tinfo().c_str(), refcount - 1);
+//	syslog(LOG_DEBUG, "%s refno=%d", tinfo().c_str(), refcount - 1);
 	if (--refcount == 0)
 		delete this;
 }

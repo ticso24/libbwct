@@ -54,6 +54,7 @@ public:
 		virtual void waitread();
 		virtual void waitwrite();
 		virtual String tinfo() const;
+		void nodelay(int flag);
 	};
 
 	class Listen : public Base {
