@@ -20,6 +20,7 @@ Network::Net::Net(int nfd) {
 
 void
 Network::Net::connect_UDS (const String& path) {
+	// XXX limit pathname!
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	int val;
 	val = SOCKSBUF;
@@ -322,6 +323,8 @@ Network::Listen::add_UDS(const String& path, int flags) {
 	int lfd;
 	int val;
 
+	// XXX limit pathname!
+	// XXX failed exception?!
 	cassert(path != "");
 	unlink(path.c_str());
 	bzero(&aun, sizeof(aun));
@@ -353,6 +356,7 @@ Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	const char *cname;
 	const char *cport;
 
+	// XXX failed exception?!
 	bzero(&hints, sizeof(hints));
 	hints.ai_flags = AI_PASSIVE;
 	hints.ai_socktype = SOCK_STREAM;
