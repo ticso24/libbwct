@@ -605,6 +605,7 @@ private:
 	T* ptr;
 public:
 	a_ptr(T* nptr) {
+		cassert(nptr != NULL);
 		ptr = nptr;
 	}
 	a_ptr() {
@@ -629,7 +630,62 @@ public:
 		return ptr;
 	}
 	T* operator=(T* nptr) {
+		cassert(nptr != NULL);
 		delete ptr;
+		ptr = nptr;
+		return ptr;
+	}
+};
+
+template <class T>
+class a_refptr {
+protected:
+	T& operator[](int i);
+private:
+	T* ptr;
+public:
+	const a_refptr& operator=(const a_refptr &src) {
+		if (ptr != NULL)
+			ptr->delref();
+		ptr = src.ptr;
+		ptr->addref();
+	}
+	a_refptr(const a_refptr &src) {
+		if (ptr != NULL)
+			ptr->delref();
+		ptr = src.ptr;
+		ptr->addref();
+	}
+	a_refptr(T* nptr) {
+		cassert(nptr != NULL);
+		ptr = nptr;
+		ptr->addref();
+	}
+	a_refptr() {
+		ptr = NULL;
+	}
+	int isinit() const {
+		return (ptr != NULL);
+	}
+	const T* operator->() const {
+		cassert(isinit());
+		return ptr;
+	}
+	T* operator->() {
+		cassert(isinit());
+		return ptr;
+	}
+	~a_refptr() {
+		ptr->delref();
+	}
+	T* get() {
+		cassert(isinit());
+		return ptr;
+	}
+	T* operator=(T* nptr) {
+		cassert(nptr != NULL);
+		if (ptr != NULL)
+			ptr->delref();
 		ptr = nptr;
 		return ptr;
 	}
