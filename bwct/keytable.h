@@ -13,6 +13,7 @@
 
 #include <bwct/tool.h>
 #include <bwct/thread.h>
+#include <mird.h>
 
 class Keydata : public Base {
 public:
