@@ -11,12 +11,11 @@
 #ifndef _COMMONH
 #define _COMMONH
 
-#include <bwct/config.h>
+#include <bwct/base.h>
 #include <bwct/bsd.h>
 #include <bwct/fdhelper.h>
 #include <bwct/network.h>
 #include <bwct/tool.h>
-#include <bwct/config.h>
 #ifdef NO_YET
 #include <bwct/ndmp.h>
 #endif
