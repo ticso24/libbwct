@@ -42,7 +42,8 @@ Network::Net::connect_UDS (const String& path) {
 	strcpy(addr.sun_path, path.c_str());
 	val = fcntl(fd, F_GETFL, 0);
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
-		close (fd);
+		::close (fd);
+		fd = -1;
 		throw Error(String("connecting ") + path + " failed");
 	}
 	fcntl(fd, F_SETFL, val | O_NONBLOCK);
@@ -86,7 +87,8 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 			fcntl(fd, F_SETFL, val | O_NONBLOCK);
 			break;
 		} else {
-			close(fd);
+			::close (fd);
+			fd = -1;
 		}
 	} while ((info = info->ai_next) != NULL);
 	if (res != 0) {
