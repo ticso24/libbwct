@@ -55,6 +55,17 @@ private:
 	int lck;
 	int dead;
 public:
+	class Guard : public Base {
+	private:
+		Mutex *mtx;
+		int locked;
+	public:
+		Guard(Mutex& nmtx, bool lck = true);
+		~Guard();
+		void lock();
+		void unlock();
+	};
+
 	friend class CV;
 	Mutex();
 	~Mutex();
