@@ -15,6 +15,7 @@ class Thread;
 class Mutex;
 class CV;
 
+#include <bwct/base.h>
 #ifdef HAVE_PTHREAD
 #include <pthread.h>
 #endif

@@ -13,8 +13,6 @@
 
 #include <bwct/config.h>
 
-#define SOCKSBUF 65536
-
 #include <sys/param.h>
 
 #include <sys/types.h>

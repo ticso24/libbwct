@@ -11,7 +11,6 @@
 #ifndef _COMMONH
 #define _COMMONH
 
-#include <bwct/base.h>
 #include <bwct/bsd.h>
 #include <bwct/fdhelper.h>
 #include <bwct/network.h>

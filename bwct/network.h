@@ -14,6 +14,8 @@
 #include <bwct/fdhelper.h>
 
 class Network {
+private:
+	const static int SOCKSBUF = 65536;
 public:
 	class Net : public File {
 	protected:

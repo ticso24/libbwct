@@ -13,7 +13,8 @@
 
 #include <bwct/tool.h>
 #include <bwct/thread.h>
-#include <mird.h>
+
+struct mird;
 
 class DB : public Base {
 protected:
@@ -25,6 +26,7 @@ public:
 	~DB();
 	void create(int num);
 	void del(int num);
+	void del(int table, const String& key);
 	void free(void* data);
 	void get(int table, const String& key, void** data, size_t* size);
 	void set(int table, const String& key, void* data, size_t size);
@@ -35,16 +37,16 @@ public:
 	protected:
 		DB db;
 		int tableno;
-		void get(const String& table, const String& key,
-		    void** data, size_t* size) {
-			db.get(tableno, table, key, data, size);
+		String name;
+		void get(const String& key, void** data, size_t* size) {
+			db.get(tableno, key, data, size);
 		}
-		void set(const String& table, const String& key,
-		    void* data, size_t size) {
-			db.get(tableno, table, key, data, size);
+		void set(const String& key, void* data, size_t size) {
+			db.get(tableno, key, data, size);
 		}
 	public:
 		Table(DB& ndb, const String& name) {
+			(this)->name = name;
 			tableno = 0;
 			db = ndb;
 			try {
@@ -71,10 +73,10 @@ public:
 				db.set(1, name, &tableno, sizeof(int));
 			}
 		}
-		void get(const String& table, const String& key, T& dobj) {
+		void get(const String& key, T& dobj) {
 			void *data;
 			size_t size;
-			db.get(tableno, table, key, &data, &size);
+			db.get(tableno, key, &data, &size);
 			try {
 				dobj.init(data, size);
 			} catch (...) {
@@ -83,11 +85,14 @@ public:
 			}
 			db.free(data);
 		}
-		void set(const String& table, const String& key, T& dobj) {
+		void set(const String& key, T& dobj) {
 			void *data;
 			size_t size;
 			dobj.read(&data, &size);
-			db.get(tableno, table, key, data, size);
+			db.get(tableno, key, data, size);
+		}
+		void del(const String& key) {
+			db.del(tableno, key);
 		}
 	};
 };

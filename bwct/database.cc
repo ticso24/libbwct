@@ -8,6 +8,7 @@
  * $Rev$
  */
 
+#include <mird.h>
 #include <bwct/base.h>
 #include <bwct/database.h>
 
@@ -97,6 +98,11 @@ DB::get(int table, const String& key, void** data, size_t* size) {
 	    (unsigned char**)data, (mird_size_t*)size);
 	if (res != 0) 
 		throw Error("Failed to lookup key");
+}
+
+void
+DB::del(int table, const String& key) {
+	set (table, key, NULL, 0);
 }
 
 void
