@@ -1,0 +1,17 @@
+#
+# Copyright (c) 2003 Bernd Walter Computer Technology
+# All rights reserved.
+#
+# $URL$
+# $Date$
+# $Author$
+# $Rev$
+#
+
+Required Software:
+openssl
+libbz2 (bzip2)
+libz (gzip)
+mird
+Posix compatible Threads
+gtkmm (not yet)

@@ -38,7 +38,30 @@ DB::~DB() {
 }
 
 void
-DB::create(int num) {
+DB::n_create(uint32_t num) {
+	MIRD_RES res;
+	Mutex::Guard mutex(mtx);
+	struct mird_transaction *mtr;
+	res = mird_transaction_new(db, &mtr);
+	if (res != 0) 
+		throw Error("Failed to create transaction");
+	try {
+		res = mird_key_new_table(mtr, num);
+		if (res != 0) 
+			throw Error("Failed to create table");
+	} catch (...) {
+		res = mird_transaction_cancel(mtr);
+		if (res != 0) 
+			throw Error("Failed to cancel transaction");
+		throw;
+	}
+	res = mird_transaction_close(mtr);
+	if (res != 0) 
+		throw Error("Failed to close transaction");
+}
+
+void
+DB::s_create(uint32_t num) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -61,7 +84,7 @@ DB::create(int num) {
 }
 
 void
-DB::del(int num) {
+DB::del(uint32_t num) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -90,7 +113,17 @@ DB::free(void* data) {
 }
 
 void
-DB::get(int table, const String& key, void** data, size_t* size) {
+DB::get(uint32_t table, const uint32_t key, void** data, size_t* size) {
+	MIRD_RES res;
+	Mutex::Guard mutex(mtx);
+	res = mird_key_lookup(db, table, key,
+	    (unsigned char**)data, (mird_size_t*)size);
+	if (res != 0) 
+		throw Error("Failed to lookup key");
+}
+
+void
+DB::get(uint32_t table, const String& key, void** data, size_t* size) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_s_key_lookup(db, table,
@@ -101,12 +134,41 @@ DB::get(int table, const String& key, void** data, size_t* size) {
 }
 
 void
-DB::del(int table, const String& key) {
+DB::del(uint32_t table, const uint32_t key) {
 	set (table, key, NULL, 0);
 }
 
 void
-DB::set(int table, const String& key, void* data, size_t size) {
+DB::del(uint32_t table, const String& key) {
+	set (table, key, NULL, 0);
+}
+
+void
+DB::set(uint32_t table, const uint32_t key, void* data, size_t size) {
+	MIRD_RES res;
+	Mutex::Guard mutex(mtx);
+	struct mird_transaction *mtr;
+	res = mird_transaction_new(db, &mtr);
+	if (res != 0) 
+		throw Error("Failed to create transaction");
+	try {
+		res = mird_key_store(mtr, table, key,
+		    (unsigned char*)data, size);
+		if (res != 0) 
+			throw Error("Failed to set key");
+	} catch (...) {
+		res = mird_transaction_cancel(mtr);
+		if (res != 0) 
+			throw Error("Failed to cancel transaction");
+		throw;
+	}
+	res = mird_transaction_close(mtr);
+	if (res != 0) 
+		throw Error("Failed to close transaction");
+}
+
+void
+DB::set(uint32_t table, const String& key, void* data, size_t size) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -138,3 +200,62 @@ DB::sync() {
 	if (res != 0)
 		throw Error("Sync failed");
 }
+
+uint32_t
+DB::n_select(const String& name) {
+	uint32_t tableno = 0;
+	try {
+		s_create(1);
+	} catch (...) {
+	}
+	try {
+		void *data;
+		size_t size;
+		get(1, name, &data, &size);
+		if (size != sizeof(uint32_t))
+			throw Error("");
+		bcopy(&tableno, data, sizeof(uint32_t));
+		(this)->free(data);
+	} catch (...) {
+		do {
+			try {
+				tableno = (uint32_t)genid();
+				n_create(tableno);
+			} catch (...) {
+				tableno = 0;
+			}
+		} while (tableno == 0);
+		set(1, name, &tableno, sizeof(uint32_t));
+	}
+	return tableno;
+}
+
+uint32_t
+DB::s_select(const String& name) {
+	uint32_t tableno = 0;
+	try {
+		s_create(1);
+	} catch (...) {
+	}
+	try {
+		void *data;
+		size_t size;
+		get(1, name, &data, &size);
+		if (size != sizeof(uint32_t))
+			throw Error("");
+		bcopy(&tableno, data, sizeof(uint32_t));
+		(this)->free(data);
+	} catch (...) {
+		do {
+			try {
+				tableno = (uint32_t)genid();
+				s_create(tableno);
+			} catch (...) {
+				tableno = 0;
+			}
+		} while (tableno == 0);
+		set(1, name, &tableno, sizeof(uint32_t));
+	}
+	return tableno;
+}
+

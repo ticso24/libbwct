@@ -20,23 +20,79 @@ class DB : public Base {
 protected:
 	struct mird *db;
 	Mutex mtx;
-public:
+	void s_create(uint32_t num);
+	void n_create(uint32_t num);
 	DB(const DB& tmp);
+public:
 	DB(const String& filename, int flags = 0, uint mode = 600);
 	~DB();
-	void create(int num);
-	void del(int num);
-	void del(int table, const String& key);
+	void del(uint32_t num);
+	void del(uint32_t table, const uint32_t key);
+	void del(uint32_t table, const String& key);
+	uint32_t s_select(const String& name);
+	uint32_t n_select(const String& name);
 	void free(void* data);
-	void get(int table, const String& key, void** data, size_t* size);
-	void set(int table, const String& key, void* data, size_t size);
+	void get(uint32_t table, const uint32_t key, void** data, size_t* size);
+	void get(uint32_t table, const String& key, void** data, size_t* size);
+	void set(uint32_t table, const uint32_t key, void* data, size_t size);
+	void set(uint32_t table, const String& key, void* data, size_t size);
 	void sync();
 
 	template <class T>
-	class Table : public Base {
+	class NumTable : public Base {
+	protected:
+		DB& db;
+		uint32_t tableno;
+		const String tablename;
+		void get(const uint32_t key, void** data, size_t* size) {
+			db.get(tableno, key, data, size);
+		}
+		void set(const uint32_t key, void* data, size_t size) {
+			db.get(tableno, key, data, size);
+		}
+	public:
+		NumTable(DB& ndb, const String& name) : tablename(name), db(ndb) {
+			tableno = db.n_select(name);
+		}
+		bool exists(const uint32_t key) {
+			void *data;
+			size_t size;
+			db.get(tableno, key, &data, &size);
+			if (data == NULL)
+				return false;
+			db.free(data);
+			return true;
+		}
+		bool get(const uint32_t key, T& dobj) {
+			void *data;
+			size_t size;
+			db.get(tableno, key, &data, &size);
+			if (data == NULL)
+				return false;
+			try {
+				dobj.init(data, size);
+			} catch (...) {
+				db.free(data);
+				throw;
+			}
+			db.free(data);
+			return true;
+		}
+		void set(const uint32_t, T& dobj) {
+			void *data;
+			size_t size;
+			dobj.read(&data, &size);
+			db.get(tableno, key, data, size);
+		}
+		void del(const uint32_t key) {
+			db.del(tableno, key);
+		}
+	};
+	template <class T>
+	class StringTable : public Base {
 	protected:
 		DB db;
-		int tableno;
+		uint32_t tableno;
 		const String tablename;
 		void get(const String& key, void** data, size_t* size) {
 			db.get(tableno, key, data, size);
@@ -45,32 +101,8 @@ public:
 			db.get(tableno, key, data, size);
 		}
 	public:
-		Table(DB& ndb, const String& name) : tablename(name) {
-			tableno = 0;
-			db = ndb;
-			try {
-				db.create(1);
-			} catch (...) {
-			}
-			try {
-				void *data;
-				size_t size;
-				db.get(1, tablename, &data, &size);
-				if (size != sizeof(int))
-					throw Error("");
-				bcopy(&tableno, data, sizeof(int));
-				db.free(data);
-			} catch (...) {
-				do {
-					try {
-						tableno = (int)genid();
-						db.create(tableno);
-					} catch (...) {
-						tableno = 0;
-					}
-				} while (tableno == 0);
-				db.set(1, tablename, &tableno, sizeof(int));
-			}
+		StringTable(DB& ndb, const String& name) : tablename(name), db(ndb) {
+			tableno = db.s_select(name);
 		}
 		bool exists(const String& key) {
 			void *data;
