@@ -259,11 +259,17 @@ void
 Network::Net::waitread() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
+	int res;
 
 	pfd.fd = fd;
 	pfd.revents = 0;
 	pfd.events = POLLIN;
-	poll(&pfd, 1, 1000);
+	do {
+		res = poll(&pfd, 1, timeout);
+	while (res == -1);
+	if (res == 0) {
+		throw Error("read timeout");
+	}
 	return;
 }
 
@@ -271,10 +277,17 @@ void
 Network::Net::waitwrite() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
+	int res;
+
 	pfd.fd = fd;
 	pfd.events = POLLOUT;
 	pfd.revents = 0;
-	poll(&pfd, 1, 1000);
+	do {
+		res = poll(&pfd, 1, timeout);
+	while (res == -1);
+	if (res == 0) {
+		throw Error("write timeout");
+	}
 	return;
 }
 
