@@ -13,8 +13,104 @@
 
 #include <bwct/tool.h>
 #include <bwct/thread.h>
-#include <bwct/db/db/db.h>
 
+class Keydata : public Base {
+};
+
+class Database : public Base {
+protected:
+	struct mird *db;
+	Mutex mtx;
+public:
+	Database(const String& filename, int flags = MIRD_NOCREATE) {
+		MIRD_RES res;
+		Mtx_Guard mutex(mtx);
+		mutex.lock();
+		res = mird_initialize(filename.c_str(), &db);
+		if (res != 0)
+			throw Error("init db failed");
+		db->flags |= flags;
+		db->cache_size = 1024;
+		res = mird_open(db);
+		if (res != 0)
+			throw Error("open db failed");
+		res = mird_sync(db);
+		if (res != 0)
+			throw Error("sync db failed");
+	}
+	~Database() {
+		Mtx_Guard mutex(mtx);
+		mutex.lock();
+		if (db != NULL) {
+			mird_close(db);
+			db = NULL;
+		}
+	}
+	void create(int num) {
+		MIRD_RES res;
+		Mtx_Guard mutex(mtx);
+		mutex.lock();
+		struct mird_transaction *mtr;
+		res = mird_transaction_new(db, &mtr);
+		if (res != 0) 
+			throw Error("Failed to create transaction");
+		try {
+			res = mird_s_key_new_table(mtr, num);
+			if (res != 0) 
+				throw Error("Failed to create table");
+		} catch (...) {
+			res = mird_transaction_cancel);
+			if (res != 0) 
+				throw Error("Failed to cancel transaction");
+			throw;
+		}
+		res = mird_transaction_close(mtr);
+		if (res != 0) 
+			throw Error("Failed to close transaction");
+	}
+	void delete(int num) {
+		MIRD_RES res;
+		Mtx_Guard mutex(mtx);
+		mutex.lock();
+		struct mird_transaction *mtr;
+		res = mird_transaction_new(db, &mtr);
+		if (res != 0) 
+			throw Error("Failed to create transaction");
+		try {
+			res = mird_s_key_del_table(mtr, num);
+			if (res != 0) 
+				throw Error("Failed to delete table");
+		} catch (...) {
+			res = mird_transaction_cancel);
+			if (res != 0) 
+				throw Error("Failed to cancel transaction");
+			throw;
+		}
+		res = mird_transaction_close(mtr);
+		if (res != 0) 
+			throw Error("Failed to close transaction");
+	}
+	void get(const String& key, void** data, size_t* size) {
+	}
+	void set(const String& key, void** data, size_t* size) {
+	}
+};
+
+template <class T>
+class Keytable : public Base {
+protected:
+	Database db;
+public:
+	Keytable(Database& ndb, const String& name) {
+		db = ndb;
+		try {
+			db.create(1);
+		} catch (...) {
+		}
+	}
+};
+
+#if 0
 template <class T>
 class Keytable : public Base {
 protected:
@@ -229,5 +325,6 @@ public:
 			db->close(db);
 	}
 };
+#endif
 
 #endif /* !_KEYTABLE */
