@@ -90,7 +90,7 @@
 # include <strings.h>
 #endif
 
-#include "bsd.h"
+#include <bwct/bsd.h>
 
 #include <typeinfo>
 #include <exception>
