@@ -31,8 +31,8 @@ libbwct_a_SOURCES =	bwct/bwct.h \
 			bwct/network.cc \
 			bwct/compress.h \
 			bwct/compress.cc \
-			bwct/db.h \
-			bwct/db.cc
+			bwct/database.h \
+			bwct/database.cc
 
 
 
