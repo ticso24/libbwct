@@ -26,11 +26,11 @@ private:
 		ET_DRIVE,
 		ET_LAST = ET_DRIVE,
 	};
-	struct voltag {
+	class voltag {
 		int serial;
 		String name;
 	};
-	struct estatus {
+	class estatus {
 		enum etypes type;
 		struct {
 			bool full;	// element is full

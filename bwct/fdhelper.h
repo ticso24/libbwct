@@ -88,7 +88,7 @@ private:
 	const Stat& operator=(const struct stat& st);
 #endif
 public:
-	struct {
+	class {
 		uint64_t dev;
 		uint64_t ino;
 		uint64_t mode;

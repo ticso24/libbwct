@@ -76,6 +76,7 @@ AC_FUNC_MMAP
 AC_FUNC_FORK([])
 AC_CHECK_FUNCS(gethostname gettimeofday select socket strerror)
 AC_CHECK_FUNCS(daemon)
+AC_CHECK_FUNCS(strdup)
 AC_CHECK_FUNCS(bzero memset, break)
 AC_CHECK_FUNCS(waitpid getnameinfo gai_strerror kqueue sigset)
 AC_CHECK_FUNCS(xdr_u_int64_t)

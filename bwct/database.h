@@ -51,39 +51,13 @@ public:
 			db.get(tableno, key, data, size);
 		}
 	public:
-		NumTable(DB& ndb, const String& name) : tablename(name), db(ndb) {
+		NumTable(DB& ndb, const String& name)
+		    : tablename(name), db(ndb) {
 			tableno = db.n_select(name);
 		}
-		bool exists(const uint32_t key) {
-			void *data;
-			size_t size;
-			db.get(tableno, key, &data, &size);
-			if (data == NULL)
-				return false;
-			db.free(data);
-			return true;
-		}
-		bool get(const uint32_t key, T& dobj) {
-			void *data;
-			size_t size;
-			db.get(tableno, key, &data, &size);
-			if (data == NULL)
-				return false;
-			try {
-				dobj.init(data, size);
-			} catch (...) {
-				db.free(data);
-				throw;
-			}
-			db.free(data);
-			return true;
-		}
-		void set(const uint32_t, T& dobj) {
-			void *data;
-			size_t size;
-			dobj.read(&data, &size);
-			db.get(tableno, key, data, size);
-		}
+		bool exists(const uint32_t key);
+		bool get(const uint32_t key, T& dobj);
+		void set(const uint32_t, T& dobj);
 		void del(const uint32_t key) {
 			db.del(tableno, key);
 		}
@@ -101,44 +75,95 @@ public:
 			db.get(tableno, key, data, size);
 		}
 	public:
-		StringTable(DB& ndb, const String& name) : tablename(name), db(ndb) {
+		StringTable(DB& ndb, const String& name)
+		    : tablename(name), db(ndb) {
 			tableno = db.s_select(name);
 		}
-		bool exists(const String& key) {
-			void *data;
-			size_t size;
-			db.get(tableno, key, &data, &size);
-			if (data == NULL)
-				return false;
-			db.free(data);
-			return true;
-		}
-		bool get(const String& key, T& dobj) {
-			void *data;
-			size_t size;
-			db.get(tableno, key, &data, &size);
-			if (data == NULL)
-				return false;
-			try {
-				dobj.init(data, size);
-			} catch (...) {
-				db.free(data);
-				throw;
-			}
-			db.free(data);
-			return true;
-		}
-		void set(const String& key, T& dobj) {
-			void *data;
-			size_t size;
-			dobj.read(&data, &size);
-			db.get(tableno, key, data, size);
-		}
+		bool exists(const String& key);
+		bool get(const String& key, T& dobj);
+		void set(const String& key, T& dobj);
 		void del(const String& key) {
 			db.del(tableno, key);
 		}
 	};
 };
 
+template <class T>
+bool
+DB::NumTable::exists(const uint32_t key) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	db.free(data);
+	return true;
+}
+
+template <class T>
+bool
+DB::NumTable::get(const uint32_t key, T& dobj) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	try {
+		dobj.init(data, size);
+	} catch (...) {
+		db.free(data);
+		throw;
+	}
+	db.free(data);
+	return true;
+}
+ 
+template <class T>
+void
+DB::NumTable::set(const uint32_t, T& dobj) {
+	void *data;
+	size_t size;
+	dobj.read(&data, &size);
+	db.get(tableno, key, data, size);
+}
+
+template <class T>
+bool
+DB::StringTable::exists(const String& key) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	db.free(data);
+	return true;
+}
+
+template <class T>
+bool
+DB::StringTable::get(const String& key, T& dobj) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	try {
+		dobj.init(data, size);
+	} catch (...) {
+		db.free(data);
+		throw;
+	}
+	db.free(data);
+	return true;
+}
+
+template <class T>
+void
+DB::StringTable::set(const String& key, T& dobj) {
+	void *data;
+	size_t size;
+	dobj.read(&data, &size);
+	db.get(tableno, key, data, size);
+}
 
 #endif /* !_KEYTABLE */
