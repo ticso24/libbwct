@@ -9,8 +9,10 @@
 #
 
 includedir = $(DESTDIR)$(prefix)/include/bwct
+dist_data_DATA =	INSTALL
 lib_LIBRARIES =		libbwct.a
-include_HEADERS =	bwct/bwct.h \
+include_HEADERS =	bwct/base.h \
+			bwct/bwct.h \
 			bwct/config.h \
 			bwct/thread.h \
 			bwct/tool.h \
