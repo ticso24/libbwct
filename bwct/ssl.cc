@@ -15,6 +15,7 @@ void
 CSSL::init() {
 	SSL_load_error_strings();
 	SSL_library_init();
+// TODO: to support systems without /dev/*random
 //	buffer char[MAX_PATH];
 //	const char *randname = RAND_file_name(buffer, sizeof(buffer));
 //	if (randname == NULL)
