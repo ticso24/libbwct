@@ -8,8 +8,31 @@
 # $Rev$
 #
 
-lib_LIBRARIES = libbwct.a
-libbwct_a_SOURCES = bwct/thread.cc bwct/tool.cc bwct/fdhelper.cc bwct/network.cc bwct/tape.cc bwct/xdr.cc bwct/changer.cc bwct/ssl.cc bwct/bsd.cc bwct/bsd.h bwct/changer.h bwct/config.h bwct/ssl.h bwct/thread.h bwct/xdr.h bwct/bwct.h bwct/fdhelper.h bwct/network.h bwct/tape.h bwct/tool.h bwct/compress.h bwct/compress.cc bwct/keytable.h bwct/keytable.cc
+lib_LIBRARIES =		libbwct.a
+libbwct_a_SOURCES =	bwct/bwct.h \
+			bwct/config.h \
+			bwct/thread.h \
+			bwct/thread.xx \
+			bwct/tool.h \
+			bwct/tool.cc \
+			bwct/fdhelper.h \
+			bwct/fdhelper.cc \
+			bwct/tape.h \
+			bwct/tape.cc \
+			bwct/changer.cc \
+			bwct/bsd.cc \
+			bwct/bsd.h \
+			bwct/changer.h \
+			bwct/ssl.h \
+			bwct/ssl.cc \
+			bwct/xdr.h \
+			bwct/xdr.cc \
+			bwct/network.h \
+			bwct/network.cc \
+			bwct/compress.h \
+			bwct/compress.cc \
+			bwct/db.h \
+			bwct/db.cc
 
 
 

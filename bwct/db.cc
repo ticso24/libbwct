@@ -9,7 +9,7 @@
  */
 
 #include <bwct/base.h>
-#include <bwct/keytable.h>
+#include <bwct/db.h>
 
 Database::Database(const String& filename, int flags, uint mode) {
 	MIRD_RES res;
