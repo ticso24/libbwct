@@ -99,7 +99,11 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		    port + " failed: " + strerror(errno));
 	}
 	peeraddr = "";
-	peername = info->ai_canonname;
+	if (info->ai_canonname != NULL) {
+		peername = info->ai_canonname;
+	} else {
+		peername = name;
+	}
 	peerport = port;
 	freeaddrinfo(infosave);
 }
