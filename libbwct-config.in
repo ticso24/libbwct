@@ -42,10 +42,6 @@ Compilation support options
   --libs-only-L only print the -L/-R part of --libs
   --libs-only-l only print the -l part of --libs
 
-Utilities & Code Generator options
-  --proc        print the name of the libbwct preprocessor
-  --procdir     print the path to the preprocessor macros
-
 EOF
 
     exit $1
@@ -77,14 +73,6 @@ while test $# -gt 0; do
         ;;
     --prefix=*)
 	prefix=$optarg
-        ;;
-    --proc)
-        echo $prefix/lib/libbwct/proc/gtkmmproc
-        exit 0
-        ;;
-    --procdir)
-        echo $prefix/lib/libbwct/proc
-        exit 0
         ;;
     --cflags)
         cflags=true
