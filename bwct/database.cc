@@ -259,3 +259,75 @@ DB::s_select(const String& name) {
 	return tableno;
 }
 
+bool
+DB::NumTable::exists(const uint32_t key) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	db.free(data);
+	return true;
+}
+
+bool
+DB::NumTable::get(const uint32_t key, Obj& dobj) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	try {
+		dobj.init(data, size);
+	} catch (...) {
+		db.free(data);
+		throw;
+	}
+	db.free(data);
+	return true;
+}
+ 
+void
+DB::NumTable::set(const uint32_t key, Obj& dobj) {
+	void *data;
+	size_t size;
+	dobj.read(&data, &size);
+	db.set(tableno, key, data, size);
+}
+
+bool
+DB::StringTable::exists(const String& key) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	db.free(data);
+	return true;
+}
+
+bool
+DB::StringTable::get(const String& key, Obj& dobj) {
+	void *data;
+	size_t size;
+	db.get(tableno, key, &data, &size);
+	if (data == NULL)
+		return false;
+	try {
+		dobj.init(data, size);
+	} catch (...) {
+		db.free(data);
+		throw;
+	}
+	db.free(data);
+	return true;
+}
+
+void
+DB::StringTable::set(const String& key, Obj& dobj) {
+	void *data;
+	size_t size;
+	dobj.read(&data, &size);
+	db.set(tableno, key, data, size);
+}
+
