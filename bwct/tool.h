@@ -12,9 +12,13 @@
 #define _TOOL
 
 class Base;
+class String;
 
 template <class T>
 class Array;
+
+template <class T>
+class Matrix;
 
 template <class T>
 class List;
@@ -123,70 +127,7 @@ public:
 	virtual String tinfo() const;
 };
 
-template <class T>
-class Matrix : public Base {
-private:
-	T *data;
-	int num;
-public:
-	Matrix(const int i);
-	~Matrix();
-	Matrix& operator=(const Matrix& rhs);
-	T& operator[](const int i);
-	T *get();
-	const T *get() const;
-	size_t size();
-	void setsize(size_t newsize);
-};
-
-template <class T>
-void
-Matrix<T>::setsize(size_t newsize) {
-	if (newsize <= size)
-		return;
-	T *newdata = new T[num];
-	for (int i = 0; i < MIN(newsize, num); i++)
-		newdata[i] = data[i];
-	data = newdata;
-}
-
-template <class T>
-size_t
-Matrix<T>::size() {
-	return num;
-}
-
-template <class T>
-Matrix<T>::Matrix(const int i) {
-	num = i;
-	data = new T[num];
-}
-
-template <class T>
-Matrix<T>::~Matrix() {
-	delete[]data;
-}
-
-template <class T>
-T&
-Matrix<T>::operator[](const int i) {
-	cassert(i < num);
-	return data[i];
-}
-
-template <class T>
-T*
-Matrix<T>::get() {
-	return data;
-}
-
-template <class T>
-const T*
-Matrix<T>::get() const {
-	return data;
-}
-
-class String {
+class String : public Base {
 private:
 	int ln;
 	char *data;
@@ -260,6 +201,69 @@ String::operator+(const T &rhs) const {
 	String nstr(*this);
 	nstr += rhs;
 	return nstr;
+}
+
+template <class T>
+class Matrix : public Base {
+private:
+	T *data;
+	int num;
+public:
+	Matrix(const int i);
+	~Matrix();
+	Matrix& operator=(const Matrix& rhs);
+	T& operator[](const int i);
+	T *get();
+	const T *get() const;
+	size_t size();
+	void setsize(size_t newsize);
+};
+
+template <class T>
+void
+Matrix<T>::setsize(size_t newsize) {
+	if (newsize <= size)
+		return;
+	T *newdata = new T[num];
+	for (int i = 0; i < MIN(newsize, num); i++)
+		newdata[i] = data[i];
+	data = newdata;
+}
+
+template <class T>
+size_t
+Matrix<T>::size() {
+	return num;
+}
+
+template <class T>
+Matrix<T>::Matrix(const int i) {
+	num = i;
+	data = new T[num];
+}
+
+template <class T>
+Matrix<T>::~Matrix() {
+	delete[]data;
+}
+
+template <class T>
+T&
+Matrix<T>::operator[](const int i) {
+	cassert(i < num);
+	return data[i];
+}
+
+template <class T>
+T*
+Matrix<T>::get() {
+	return data;
+}
+
+template <class T>
+const T*
+Matrix<T>::get() const {
+	return data;
 }
 
 class Error : public std::exception {
@@ -356,7 +360,7 @@ SArray<T>::operator[](int i) {
 };
 
 template <class T>
-class Array {
+class Array : public Base {
 private:
 	int num_elem;
 	T **elements;
@@ -492,7 +496,7 @@ Array<T>::exists(const int i) {
 }
 
 template <class T>
-class List {
+class List : public Base {
 private:
 	struct elements {
 		T *obj;
@@ -593,7 +597,7 @@ List<T>::operator-=(int i) {
 };
 
 template <class T>
-class a_ptr {
+class a_ptr : public Base {
 protected:
 	const a_ptr& operator=(const a_ptr &src);
 	a_ptr(const a_ptr &src);
@@ -635,7 +639,7 @@ public:
 };
 
 template <class T>
-class a_refptr {
+class a_refptr : public Base {
 protected:
 	T& operator[](int i);
 private:

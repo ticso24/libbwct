@@ -456,8 +456,8 @@ Network::Listen::cox(int fd) {
 	cassert(res >= 0);
 }
 
-Network *
+Network::Net *
 Network::Listen::newcon(int clientfd) {
-	return new Network(clientfd);
+	return new Net(clientfd);
 }
 

@@ -23,7 +23,7 @@ CSSL::Network::Network(Context *sc) {
 	x509 = NULL;
 }
 
-CSSL::Network::Network(int nfd, Context *sc) : ::Network(nfd) {
+CSSL::Network::Network(int nfd, Context *sc) : ::Network::Net(nfd) {
 	(this)->sc = sc;
 	ssl = NULL;
 	x509 = NULL;
@@ -41,21 +41,21 @@ CSSL::Network::~Network() {
 ssize_t
 CSSL::Network::microread(void *vptr, size_t n) {
 	if (sc == NULL)
-		return ::Network::microread(vptr, n);
+		return ::Network::Net::microread(vptr, n);
 	return SSL_read(ssl, vptr, n);
 }
 
 ssize_t
 CSSL::Network::microwrite(const void *vptr, size_t n) {
 	if (sc == NULL)
-		return ::Network::microwrite(vptr, n);
+		return ::Network::Net::microwrite(vptr, n);
 	return SSL_write(ssl, vptr, n);
 }
 
 ssize_t
 CSSL::Network::readv(SArray<struct iovec>& data) {
 	if (sc == NULL)
-		return ::Network::readv(data);
+		return ::Network::Net::readv(data);
 	ssize_t nread = 0;
 	for (int i = 0; i <= data.max; i++) {
 		ssize_t res = readn(data[i].iov_base, data[i].iov_len);
@@ -69,7 +69,7 @@ CSSL::Network::readv(SArray<struct iovec>& data) {
 ssize_t
 CSSL::Network::writev(SArray<struct iovec>& data) {
 	if (sc == NULL)
-		return ::Network::writev(data);
+		return ::Network::Net::writev(data);
 	ssize_t nwritten = 0;
 	for (int i = 0; i <= data.max; i++) {
 		ssize_t res = writen(data[i].iov_base, data[i].iov_len);
@@ -150,7 +150,7 @@ CSSL::Network::sconnect() {
 
 void
 CSSL::Network::connect_UDS(const String& path) {
-	::Network::connect_UDS(path);
+	::Network::Net::connect_UDS(path);
 	if (sc != NULL)
 		sconnect();
 }
@@ -158,12 +158,12 @@ CSSL::Network::connect_UDS(const String& path) {
 void
 CSSL::Network::connect_tcp(const String& name, const String& port,
     int family) {
-	::Network::connect_tcp(name, port, family);
+	::Network::Net::connect_tcp(name, port, family);
 	if (sc != NULL)
 		sconnect();
 }
 
-::Network *
+::Network::Net *
 CSSL::Listen::newcon(int clientfd) {
 	return new Network(clientfd);
 }

@@ -13,7 +13,7 @@
 
 #include <bwct/network.h>
 
-class CSSL : public Base {
+class CSSL {
 public:
 	static void init();
 	class Network;
@@ -51,7 +51,7 @@ public:
 
 	class Listen : public ::Network::Listen {
 	private:
-		virtual ::Network *newcon(int clientfd);
+		virtual ::Network::Net *newcon(int clientfd);
 	};
 };
 

@@ -13,7 +13,8 @@
 
 #include <bwct/fdhelper.h>
 
-class Network
+class Network {
+public:
 	class Net : public File {
 	protected:
 		String peername;
