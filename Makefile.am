@@ -39,7 +39,7 @@ libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/compress.cc \
 			bwct/database.cc
 m4datadir =		$(datadir)/aclocal
-m4data_DATA =		aclocal/libbwct.m4
+m4data_DATA =		libbwct.m4
 
 all-local:
 	@echo "*** Everything completed ***"
