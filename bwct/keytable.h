@@ -74,7 +74,7 @@ public:
 				} catch (...) {
 					tableno = 0;
 				}
-			while (tableno == 0);
+			} while (tableno == 0);
 			db.set(1, name, &tableno, sizeof(int));
 		}
 	}
