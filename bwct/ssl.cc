@@ -15,13 +15,13 @@ void
 CSSL::init() {
 	SSL_load_error_strings();
 	SSL_library_init();
-// TODO: to support systems without /dev/*random
-//	buffer char[MAX_PATH];
-//	const char *randname = RAND_file_name(buffer, sizeof(buffer));
-//	if (randname == NULL)
-//		throw Error("Coudn't get random file");
-//	if (!RAND_load_file(randname, 1024 * 1024)
-//		throw Error("Couldn't load randomness")
+
+	int r;
+	srand(time(NULL));
+	do {
+		r = rand();
+		RAND_seed(&r, sizeof(int));
+	} while(0 == RAND_status());
 }
 
 CSSL::Network::Network(Context *sc) {
