@@ -41,9 +41,9 @@ Network::Net::connect_UDS (const String& path) {
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, path.c_str());
 	val = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, val | O_NONBLOCK);
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
 		throw Error(String("connecting ") + path + " failed");
+	fcntl(fd, F_SETFL, val | O_NONBLOCK);
 	peername = sgethostname();
 }
 
@@ -79,9 +79,13 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 		val = fcntl(fd, F_GETFL, 0);
-		fcntl(fd, F_SETFL, val | O_NONBLOCK);
 		res = connect(fd, info->ai_addr, info->ai_addrlen);
-		if (res == 0) break;
+		if (res == 0) {
+			fcntl(fd, F_SETFL, val | O_NONBLOCK);
+			break;
+		} else {
+			close(fd);
+		}
 	} while ((info = info->ai_next) != NULL);
 	if (res != 0) {
 		freeaddrinfo(infosave);
