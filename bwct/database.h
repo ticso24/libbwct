@@ -90,7 +90,7 @@ public:
 
 template <class T>
 bool
-DB::NumTable::exists(const uint32_t key) {
+DB::NumTable<T>::exists(const uint32_t key) {
 	void *data;
 	size_t size;
 	db.get(tableno, key, &data, &size);
@@ -102,7 +102,7 @@ DB::NumTable::exists(const uint32_t key) {
 
 template <class T>
 bool
-DB::NumTable::get(const uint32_t key, T& dobj) {
+DB::NumTable<T>::get(const uint32_t key, T& dobj) {
 	void *data;
 	size_t size;
 	db.get(tableno, key, &data, &size);
@@ -120,7 +120,7 @@ DB::NumTable::get(const uint32_t key, T& dobj) {
  
 template <class T>
 void
-DB::NumTable::set(const uint32_t, T& dobj) {
+DB::NumTable<T>::set(const uint32_t, T& dobj) {
 	void *data;
 	size_t size;
 	dobj.read(&data, &size);
@@ -129,7 +129,7 @@ DB::NumTable::set(const uint32_t, T& dobj) {
 
 template <class T>
 bool
-DB::StringTable::exists(const String& key) {
+DB::StringTable<T>::exists(const String& key) {
 	void *data;
 	size_t size;
 	db.get(tableno, key, &data, &size);
@@ -141,7 +141,7 @@ DB::StringTable::exists(const String& key) {
 
 template <class T>
 bool
-DB::StringTable::get(const String& key, T& dobj) {
+DB::StringTable<T>::get(const String& key, T& dobj) {
 	void *data;
 	size_t size;
 	db.get(tableno, key, &data, &size);
@@ -159,7 +159,7 @@ DB::StringTable::get(const String& key, T& dobj) {
 
 template <class T>
 void
-DB::StringTable::set(const String& key, T& dobj) {
+DB::StringTable<T>::set(const String& key, T& dobj) {
 	void *data;
 	size_t size;
 	dobj.read(&data, &size);
