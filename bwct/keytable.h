@@ -79,7 +79,7 @@ protected:
 			throw Error("Key doesn't exist");
 		cassert(dbdata.size == sizeof(T));
 		T *data;
-		memcpy(&data, dbdata.data, sizeof(data);
+		memcpy(&data, dbdata.data, sizeof(data));
 		return (data);
 	}
 	virtual int exists(DBT& key) {
@@ -88,7 +88,7 @@ protected:
 		DBT dbdata;
 		cassert(db != NULL);
 		int res = db->get(db, &key, &dbdata, 0);
-		return ();
+		return (res);
 	}
 	virtual T& val(DBT& key) {
 		Mtx_Guard mutex(mtx);
@@ -119,7 +119,7 @@ public:
 			DBT dbdata;
 			int res = db->seq(db, &dbkey, &dbdata, R_FIRST);
 			while (res == 0) {
-				memcpy(&data, dbdata.data, sizeof(data);
+				memcpy(&data, dbdata.data, sizeof(data));
 				delete data;
 				res = db->seq(db, &dbkey, &dbdata, R_NEXT);
 			}
@@ -176,7 +176,7 @@ protected:
 		}
 	};
 	DB db;
-	BinTree<Data<T> > cache;
+	BinTree<T> cache;
 	virtual void release(DBT& key) {
 		Mtx_Guard mutex(mtx);
 		mutex.lock();

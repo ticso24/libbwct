@@ -154,9 +154,3 @@ xdr_enum(XDR *xdrs, enum_t *objp) {
 	return xdr_bwct_u32(xdrs, objp);
 }
 
-void
-xdr_do_command(XDR& xdr, command& cmd) {
-	if (!xdr_command(&xdr, &cmd))
-		throw Error("xdr failed");
-}
-

@@ -434,6 +434,7 @@ tohex(char *data, int size) {
 		val[1] = (nibble > 9) ? 'a' + nibble - 10 : '0' + nibble;
 		ret += val;
 	}
+	return ret;
 }
 
 /*

@@ -57,7 +57,4 @@ bool_t xdr_bwct_u16(XDR *, bwct_u16 *);
 bool_t xdr_bwct_u8(XDR *, bwct_u8 *);
 bool_t xdr_enum(XDR *, enum_t *);
 
-class command;
-void xdr_do_command(XDR& xdr, command& cmd);
-
 #endif /* !_XDR_H */
