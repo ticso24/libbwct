@@ -8,8 +8,8 @@
  * $Rev$
  */
 
-#ifndef _CONFIG
-#define _CONFIG
+#ifndef _BASE
+#define _BASE
 
 #include <bwct/config.h>
 
@@ -148,4 +148,4 @@ typedef stop mtop;
 #endif
 #endif
 
-#endif /* !_CONFIG */
+#endif /* !_BASE */

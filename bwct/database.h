@@ -8,8 +8,8 @@
  * $Rev$
  */
 
-#ifndef _KEYTABLE
-#define _KEYTABLE
+#ifndef _DATABASE
+#define _DATABASE
 
 #include <bwct/tool.h>
 #include <bwct/thread.h>
@@ -94,4 +94,4 @@ public:
 	};
 };
 
-#endif /* !_KEYTABLE */
+#endif /* !_DATABASE */

@@ -8,16 +8,14 @@
  * $Rev$
  */
 
-#ifndef _COMMONH
-#define _COMMONH
+#ifndef _BWCT
+#define _BWCT
 
+#include <bwct/base.h>
 #include <bwct/bsd.h>
 #include <bwct/fdhelper.h>
 #include <bwct/network.h>
 #include <bwct/tool.h>
-#ifdef NO_YET
-#include <bwct/ndmp.h>
-#endif
 #include <bwct/thread.h>
 #include <bwct/xdr.h>
 #include <bwct/tape.h>
@@ -26,4 +24,11 @@
 #include <bwct/compress.h>
 #include <bwct/database.h>
 
-#endif /* !_COMMONH */
+#undef PACKAGE_VERSION
+#undef PACKAGE_NAME
+#undef PACKAGE_STRING
+#undef PACKAGE_TARNAME
+#undef VERSION
+#undef PACKAGE
+
+#endif /* !_BWCT */
