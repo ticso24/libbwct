@@ -13,6 +13,11 @@
 
 #include <bwct/fdhelper.h>
 
+/*
+ * XXX: It may be required that read's and write's are page aligned!
+ * => freebsd-scsi Message-ID: <20030602131225.F71034@beppo>
+ */
+
 class Tape : public File {
 public:
 	void open(const String& device) {
