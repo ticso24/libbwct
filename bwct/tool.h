@@ -300,7 +300,7 @@ public:
 	SArray();
 	SArray(const SArray &src);
 	void del(const int i);
-	const T& operator= (const SArray &src);
+	const SArray& operator= (const SArray &src);
 	~SArray();
 	T& operator[](const int i);
 };
@@ -333,7 +333,7 @@ SArray<T>::~SArray () {
 }
 
 template <class T>
-const T&
+const SArray<T>&
 SArray<T>::operator= (const SArray &src) {
 
 	free (elements);
