@@ -15,12 +15,6 @@
 #include <bwct/thread.h>
 #include <mird.h>
 
-class Keydata : public Base {
-public:
-	void read(void **data, size_t *size);
-	void init(void *data, size_t size);
-};
-
 class Database : public Base {
 protected:
 	struct mird *db;
