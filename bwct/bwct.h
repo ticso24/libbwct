@@ -24,6 +24,7 @@
 #include <bwct/compress.h>
 #include <bwct/database.h>
 
+#undef PACKAGE_BUGREPORT
 #undef PACKAGE_VERSION
 #undef PACKAGE_NAME
 #undef PACKAGE_STRING
