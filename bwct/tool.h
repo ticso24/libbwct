@@ -240,6 +240,12 @@ String::operator+(const T &rhs) const {
 class Error : public std::exception {
 public:
 	String msg;
+	Error(const char* msg) {
+		(this)->msg = msg;
+#ifdef DEBUG
+		syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
+#endif
+	}
 	Error(const String& msg = "") {
 		(this)->msg = msg;
 #ifdef DEBUG
