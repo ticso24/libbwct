@@ -11,7 +11,7 @@
 #include <bwct/base.h>
 #include <bwct/db.h>
 
-Database::Database(const String& filename, int flags, uint mode) {
+DB::DB(const String& filename, int flags, uint mode) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_initialize((char*)filename.c_str(), &db);
@@ -28,7 +28,7 @@ Database::Database(const String& filename, int flags, uint mode) {
 		throw Error("sync db failed");
 }
 
-Database::~Database() {
+DB::~DB() {
 	Mutex::Guard mutex(mtx);
 	if (db != NULL) {
 		mird_close(db);
@@ -37,7 +37,7 @@ Database::~Database() {
 }
 
 void
-Database::create(int num) {
+DB::create(int num) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -60,7 +60,7 @@ Database::create(int num) {
 }
 
 void
-Database::del(int num) {
+DB::del(int num) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -83,13 +83,13 @@ Database::del(int num) {
 }
 
 void
-Database::free(void* data) {
+DB::free(void* data) {
 	if (data != NULL)
 		mird_free((unsigned char*)data);
 }
 
 void
-Database::get(int table, const String& key, void** data, size_t* size) {
+DB::get(int table, const String& key, void** data, size_t* size) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_s_key_lookup(db, table,
@@ -100,7 +100,7 @@ Database::get(int table, const String& key, void** data, size_t* size) {
 }
 
 void
-Database::set(int table, const String& key, void* data, size_t size) {
+DB::set(int table, const String& key, void* data, size_t size) {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	struct mird_transaction *mtr;
@@ -125,7 +125,7 @@ Database::set(int table, const String& key, void* data, size_t size) {
 }
 
 void
-Database::sync() {
+DB::sync() {
 	MIRD_RES res;
 	Mutex::Guard mutex(mtx);
 	res = mird_sync(db);
