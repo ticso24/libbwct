@@ -40,13 +40,7 @@ public:
 	void set(uint32_t table, const String& key, void* data, size_t size);
 	void sync();
 
-	class Obj : public Base {
-	public:
-		virtual void init(void* data, size_t size) {
-		}
-		virtual void read(void** data, size_t* size) {
-		}
-	};
+	class Obj;
 
 	class NumTable : public Base {
 	protected:
@@ -92,6 +86,17 @@ public:
 		void set(const String& key, Obj& dobj);
 		void del(const String& key) {
 			db.del(tableno, key);
+		}
+	};
+	class Obj : public Base {
+	protected:
+		Mutex mtx;
+	public:
+		Obj(DB& ndb, const String& name) {
+		}
+		virtual void init(void* data, size_t size) {
+		}
+		virtual void read(void** data, size_t* size) {
 		}
 	};
 };
