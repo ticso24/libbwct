@@ -308,9 +308,9 @@ DB::NumTable::get(const uint32_t key, Obj& dobj) {
  
 void
 DB::NumTable::set(const uint32_t key, Obj& dobj) {
-	void *data;
-	size_t size;
-	dobj.read(&data, &size);
+	size_t size = dobj.calcsize();
+	char data[size];
+	dobj.read((void*)data, size);
 	db.set(tableno, key, data, size);
 }
 
@@ -344,9 +344,9 @@ DB::StringTable::get(const String& key, Obj& dobj) {
 
 void
 DB::StringTable::set(const String& key, Obj& dobj) {
-	void *data;
-	size_t size;
-	dobj.read(&data, &size);
+	size_t size = dobj.calcsize();
+	char data[size];
+	dobj.read((void*)data, size);
 	db.set(tableno, key, data, size);
 }
 
