@@ -26,13 +26,14 @@ AC_PROG_RANLIB
 CB_CFLAGS="-Wall -DDEBUG"
 # _XOPEN_SOURCE hurts on Solaris...
 # CB_CFLAGS="$CB_CFLAGS -D_XOPEN_SOURCE=1"	# POLLRDNORM/POLLWRNORM under Linux
-CB_CFLAGS="$CB_CFLAGS -D_XOPEN_SOURCE_EXTENDED=1" # enable mostly useable sockets on HPUX
-CB_CFLAGS="$CB_CFLAGS -D_BSD_SOURCE=1"		# reenable gethostname and others on Linux
-CB_CFLAGS="$CB_CFLAGS -D_LARGEFILE64_SOURCE=1"	# access to files greater than 2Gb in Solaris
-CB_CFLAGS="$CB_CFLAGS -D_USE_LARGEFILE64=1"	# access to files greater than 2Gb in Linux
-CB_CFLAGS="$CB_CFLAGS -D_LARGE_FILE_API=1"	# access to files greater than 2Gb in AIX
+AC_DEFINE(_XOPEN_SOURCE_EXTENDED, 1, [enable mostly useable sockets on HPUX])
+AC_DEFINE(_BSD_SOURCE, 1, [reenable gethostname and others on Linux])
+AC_DEFINE(_LARGEFILE64_SOURCE, 1, [access to files greater than 2Gb in Solaris])
+AC_DEFINE(_USE_LARGEFILE64, 1, [access to files greater than 2Gb in Linux])
+AC_DEFINE(_LARGE_FILE_API, 1, [access to files greater than 2Gb in AIX])
 
 CXXFLAGS="$CXXFLAGS $CB_CFLAGS"
+XCXXFLAGS="$CB_CFLAGS"
 CFLAGS="$CFLAGS $CB_CFLAGS"
 
 dnl test using a C-compiler as there are some strange effects with some
@@ -118,6 +119,7 @@ ACX_PTHREAD([
 	AC_DEFINE(HAVE_PTHREAD, 1, [pthreads OK])
 	LIBS="$PTHREAD_LIBS $LIBS"
 	CXXFLAGS="$CXXFLAGS $PTHREAD_CFLAGS"
+	XCXXFLAGS="$XCXXFLAGS $PTHREAD_CFLAGS"
 	], [
 	echo "using forked threads"
 	]) 
@@ -132,6 +134,7 @@ for dir in $openssl_config_prefix /usr/local/ssl /usr/lib/ssl /usr/ssl /usr/pkg 
     if test -f "$dir/include/openssl/ssl.h"; then
         found_ssl="yes";
         CXXFLAGS="$CXXFLAGS -I$ssldir/include";
+        XCXXFLAGS="$XCXXFLAGS -I$ssldir/include";
 	AC_DEFINE(HAVE_SSL, 1, [define wether we have SSL])
         break;
     fi
@@ -142,9 +145,8 @@ else
     printf "OpenSSL found in $ssldir\n";
     LIBS="$LIBS -lssl -lcrypto";
     LDFLAGS="$LDFLAGS -L$ssldir/lib";
-    HAVE_SSL=yes
+    XLDFLAGS="$XLDFLAGS -L$ssldir/lib";
 fi
-AC_SUBST(HAVE_SSL)
 
 AC_ARG_WITH(mird-prefix,
 [  --with-mird-prefix=PREFIX
@@ -156,6 +158,7 @@ for dir in $mird_config_prefix /usr/local /usr/lib /usr /usr /opt/mird; do
     if test -f "$dir/include/mird.h"; then
         found_mird="yes";
         CXXFLAGS="$CXXFLAGS -I$mirddir/include";
+        XCXXFLAGS="$XCXXFLAGS -I$mirddir/include";
 	AC_DEFINE(HAVE_MIRD, 1, [define wether we have MIRD])
         break;
     fi
@@ -166,12 +169,18 @@ else
     printf "mird found in $mirddir\n";
     LIBS="$LIBS -lmird";
     LDFLAGS="$LDFLAGS -L$mirddir/lib";
-    HAVE_MIRD=yes
+    XLDFLAGS="$XLDFLAGS -L$mirddir/lib";
 fi
-AC_SUBST(HAVE_MIRD)
+AC_SUBST(XLDFLAGS)
+AC_SUBST(XCXXFLAGS)
+AC_SUBST(LIBS)
 
 AC_LANG([C++])
 
 AC_CONFIG_FILES(Makefile)
-AC_OUTPUT
+AC_OUTPUT([Makefile \
+	libbwct-config
+])
+
+chmod +x libbwct-config
 

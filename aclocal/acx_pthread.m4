@@ -1,3 +1,8 @@
+dnl $URL$
+dnl $Date$
+dnl $Author$
+dnl $Rev$
+dnl
 dnl @synopsis ACX_PTHREAD([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl This macro figures out how to build C programs using POSIX
