@@ -405,7 +405,7 @@ void
 Base::delref() {
 	check();
 	syslog(LOG_DEBUG, "%s refno=%d", tinfo().c_str(), refcount - 1);
-	if (!(--refcount))
+	if (--refcount == 0)
 		delete this;
 }
 
