@@ -149,29 +149,6 @@ else
     XLDFLAGS="$XLDFLAGS -L$ssldir/lib";
 fi
 
-AC_ARG_WITH(mird-prefix,
-[  --with-mird-prefix=PREFIX
-                          Prefix where mird is installed (optional)]
-, mird_config_prefix="$withval", mird_config_prefix="")
-
-for dir in $mird_config_prefix /usr/local /usr/lib /usr /usr /opt/mird; do
-    mirddir="$dir"
-    if test -f "$dir/include/mird.h"; then
-        found_mird="yes";
-        CXXFLAGS="$CXXFLAGS -I$mirddir/include";
-        XCXXFLAGS="$XCXXFLAGS -I$mirddir/include";
-	AC_DEFINE(HAVE_MIRD, 1, [define wether we have MIRD])
-        break;
-    fi
-done
-if test x_$found_mird != x_yes; then
-    AC_MSG_ERROR(Cannot find mird libraries)
-else
-    printf "mird found in $mirddir\n";
-    LIBS="$LIBS -lmird";
-    LDFLAGS="$LDFLAGS -L$mirddir/lib";
-    XLDFLAGS="$XLDFLAGS -L$mirddir/lib";
-fi
 AC_SUBST(XLDFLAGS)
 AC_SUBST(XCXXFLAGS)
 AC_SUBST(LIBS)
