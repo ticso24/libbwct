@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2001,02 Bernd Walter Computer Technology
+# Copyright (c) 2001,02.04 Bernd Walter Computer Technology
 # All rights reserved.
 #
 # $URL$
@@ -10,9 +10,9 @@
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([libbwct],[0.8],[bernd@bwct.de])
+AC_INIT([libbwct],[0.9],[bernd@bwct.de])
 AC_CONFIG_SRCDIR(bwct/bwct.h)
-AM_INIT_AUTOMAKE(libbwct, 0.8)
+AM_INIT_AUTOMAKE(libbwct, 0.9)
 AM_CONFIG_HEADER(bwct/config.h)
 
 AC_AIX
@@ -155,7 +155,6 @@ AC_SUBST(LIBS)
 
 AC_LANG([C++])
 
-AC_CONFIG_FILES(Makefile)
 AC_OUTPUT([Makefile \
 	libbwct-config
 ])

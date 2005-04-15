@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,04 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -300,7 +300,7 @@ public:
 	SArray();
 	SArray(const SArray &src);
 	void del(const int i);
-	const T& operator= (const SArray &src);
+	const SArray& operator= (const SArray &src);
 	~SArray();
 	T& operator[](const int i);
 };
@@ -316,9 +316,34 @@ SArray<T>::SArray () {
 }
 
 template <class T>
+SArray<T>::SArray (const SArray &src) {
+
+	max = src.max;
+	num_elem = src.num_elem;
+	elements = (T *)calloc(num_elem, sizeof(T));
+	if (!elements)
+		throw std::bad_alloc();
+	bcopy(src.elements, elements, num_elem * sizeof(T));
+}
+
+template <class T>
 SArray<T>::~SArray () {
 
 	free (elements);
+}
+
+template <class T>
+const SArray<T>&
+SArray<T>::operator= (const SArray &src) {
+
+	free (elements);
+	max = src.max;
+	num_elem = src.num_elem;
+	elements = (T *)calloc(num_elem, sizeof(T));
+	if (!elements)
+		throw std::bad_alloc();
+	bcopy(src.elements, elements, num_elem * sizeof(T));
+	return *this;
 }
 
 template <class T>
@@ -455,7 +480,7 @@ Array<T>::setsize(const int i) {
 
 template <class T>
 T*
-cutptr(const int i) {
+Array<T>::cutptr(const int i) {
 	cassert(i >= 0);
 	T *tmp = elements[i];
 	elements[i] = NULL;
@@ -464,7 +489,7 @@ cutptr(const int i) {
 
 template <class T>
 void
-pasteptr(const int i, T* ptr) {
+Array<T>::pasteptr(const int i, T* ptr) {
 	cassert(i >= 0);
 	if (i > max) {
 		max = i;
