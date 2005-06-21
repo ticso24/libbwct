@@ -22,11 +22,13 @@ public:
 		String peername;
 		String peeraddr;
 		String peerport;
+		int timeout;
 		virtual int retrievepeername();
 	private:
 		int canon;
 	public:
 		Net() {
+			timeout = INFTIM;
 		}
 		Net(int nfd);
 		~Net() {
@@ -36,6 +38,9 @@ public:
 		}
 		ssize_t write(const void *vptr, size_t n) {
 			return File::write(vptr, n);
+		}
+		void settimeout(int nval) {
+			timeout = nval;
 		}
 		virtual void connect_UDS(const String& path);
 		virtual void connect_tcp(const String& name, const String& port,

@@ -29,6 +29,7 @@ String::String(const Matrix<char>& rhs) {
 }
 
 String::String(const char* rhs) {
+	cassert(rhs != NULL);
 	data = (char*)malloc(strlen(rhs) + 1);
 	if (data == NULL)
 		throw std::bad_alloc();
@@ -161,6 +162,7 @@ String::operator= (const String &rhs) {
 
 const String&
 String::operator= (const char *rhs) {
+	cassert(rhs != NULL);
 	if (data != NULL)
 		free (data);
 	data = (char*)malloc(strlen(rhs) + 1);
@@ -247,6 +249,7 @@ String::operator== (const Matrix<char>& rhs) const {
 
 bool
 String::operator== (const char *rhs) const {
+	cassert(rhs != NULL);
 	return (strcmp(data, rhs) == 0);
 }
 
@@ -262,6 +265,7 @@ String::operator!= (const Matrix<char>& rhs) const {
 
 bool
 String::operator!= (const char *rhs) const {
+	cassert(rhs != NULL);
 	return (strcmp(data, rhs) != 0);
 }
 
@@ -287,6 +291,7 @@ String::operator+= (const Matrix<char>& rhs) {
 
 String&
 String::operator+= (const char *rhs) {
+	cassert(rhs != NULL);
 	data = (char*)realloc(data, ln + strlen(rhs) + 1);
 	if (data == NULL)
 		throw std::bad_alloc();

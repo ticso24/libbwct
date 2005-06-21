@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,04 Bernd Walter Computer Technology
  * All rights reserved.
  *
  * $URL$
@@ -41,9 +41,12 @@ Network::Net::connect_UDS (const String& path) {
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, path.c_str());
 	val = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, val | O_NONBLOCK);
-	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0)
+	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+		::close (fd);
+		fd = -1;
 		throw Error(String("connecting ") + path + " failed");
+	}
+	fcntl(fd, F_SETFL, val | O_NONBLOCK);
 	peername = sgethostname();
 }
 
@@ -73,23 +76,34 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		    port + " failed");
 	}
 	do {
-		int fd = socket(family, SOCK_STREAM, PF_INET);
+		fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+		if (!opened()) {
+			throw Error("failed to get socket");
+		}
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 		val = fcntl(fd, F_GETFL, 0);
-		fcntl(fd, F_SETFL, val | O_NONBLOCK);
 		res = connect(fd, info->ai_addr, info->ai_addrlen);
-		if (res == 0) break;
+		if (res == 0) {
+			fcntl(fd, F_SETFL, val | O_NONBLOCK);
+			break;
+		} else {
+			close();
+		}
 	} while ((info = info->ai_next) != NULL);
 	if (res != 0) {
 		freeaddrinfo(infosave);
 		throw Error(String("connecting [") + name + "]:" +
-		    port + " failed");
+		    port + " failed: " + strerror(errno));
 	}
 	peeraddr = "";
-	peername = info->ai_canonname;
+	if (info->ai_canonname != NULL) {
+		peername = info->ai_canonname;
+	} else {
+		peername = name;
+	}
 	peerport = port;
 	freeaddrinfo(infosave);
 }
@@ -119,17 +133,21 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 		sa->sin_port = sent->s_port;
 		bcopy (&hent->h_addr_list[i], &(sa->sin_addr),
 		    hent->h_length);
-		int fd = socket(family, SOCK_STREAM, PF_INET);
+		fd = socket(family, SOCK_STREAM, PF_INET);
 		int val;
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 		val = fcntl(fd, F_GETFL, 0);
-		fcntl(fd, F_SETFL, val | O_NONBLOCK);
 		res = connect(fd, (sockaddr*)sa.get(),
 		    sizeof(struct sockaddr_in));
-		if (res == 0) break;
+		if (res == 0) {
+			fcntl(fd, F_SETFL, val | O_NONBLOCK);
+			break;
+		} else {
+			close();
+		}
 		i++;
 	} while (hent->h_addr_list[i] != NULL);
 	if (res != 0) {
@@ -241,11 +259,17 @@ void
 Network::Net::waitread() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
+	int res;
 
 	pfd.fd = fd;
 	pfd.revents = 0;
 	pfd.events = POLLIN;
-	poll(&pfd, 1, 1000);
+	do {
+		res = poll(&pfd, 1, timeout);
+	while (res == -1);
+	if (res == 0) {
+		throw Error("read timeout");
+	}
 	return;
 }
 
@@ -253,10 +277,17 @@ void
 Network::Net::waitwrite() {
 	// TODO: use kevent & select
 	struct pollfd pfd;
+	int res;
+
 	pfd.fd = fd;
 	pfd.events = POLLOUT;
 	pfd.revents = 0;
-	poll(&pfd, 1, 1000);
+	do {
+		res = poll(&pfd, 1, timeout);
+	while (res == -1);
+	if (res == 0) {
+		throw Error("write timeout");
+	}
 	return;
 }
 
