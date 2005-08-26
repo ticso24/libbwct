@@ -266,7 +266,7 @@ Network::Net::waitread() {
 	pfd.events = POLLIN;
 	do {
 		res = poll(&pfd, 1, timeout);
-	while (res == -1);
+	} while (res == -1);
 	if (res == 0) {
 		throw Error("read timeout");
 	}
@@ -284,7 +284,7 @@ Network::Net::waitwrite() {
 	pfd.revents = 0;
 	do {
 		res = poll(&pfd, 1, timeout);
-	while (res == -1);
+	} while (res == -1);
 	if (res == 0) {
 		throw Error("write timeout");
 	}
