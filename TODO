@@ -1,0 +1,8 @@
+add without-ssl.
+fallback to run without working ssl
+do a test-compile for ssl - Linsuks may have installed incomplete headers
+
+check for INFTIM existence.
+
+IOV_MAX verification doesn't work on RedHat.
+
