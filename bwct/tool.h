@@ -676,6 +676,7 @@ public:
 			ptr->delref();
 		ptr = src.ptr;
 		ptr->addref();
+		return *this;
 	}
 	a_refptr(const a_refptr &src) {
 		if (ptr != NULL)
