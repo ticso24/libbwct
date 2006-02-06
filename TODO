@@ -2,8 +2,6 @@ add without-ssl.
 fallback to run without working ssl
 do a test-compile for ssl - Linsuks may have installed incomplete headers
 
-check for INFTIM existence.
-
 IOV_MAX verification doesn't work on RedHat:
 [root@predator mb_tcpclient-0.3]# make
 g++ -O2 -g -Wall -Wsystem-headers -Wno-format-y2k -Wno-uninitialized `libbwctmb-config --cflags` -c mb_tcpclient.cc
