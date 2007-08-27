@@ -50,8 +50,12 @@
 # else
 #  if HAVE_SYS_MTIO_H
 #   include <sys/ioctl.h>
-#   if HAVE_SGTTY_H
-#    include <sgtty.h>
+#   if HAVE_TERMIOS_H
+#    include <termios.h>
+#   else
+#    if HAVE_SGTTY_H
+#     include <sgtty.h>
+#    endif
 #   endif
 #   if HAVE_SYS_IO_TRIOCTL_H
 #    include <sys/io/trioctl.h>
