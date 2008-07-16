@@ -303,6 +303,7 @@ public:
 	const SArray& operator= (const SArray &src);
 	~SArray();
 	T& operator[](const int i);
+	const T& operator[](const int i) const;
 };
 
 template <class T>
@@ -358,6 +359,15 @@ SArray<T>::del(const int i) {
 }
 
 template <class T>
+const T&
+SArray<T>::operator[](int i) const {
+       
+	cassert(i >= 0);
+	cassert(i <= max);
+	return elements[i];
+};
+
+template <class T>
 T&
 SArray<T>::operator[](int i) {
 	int old_num;
@@ -403,6 +413,7 @@ public:
 	const T& operator=(const Array &src);
 	~Array();
 	T& operator[](const int i);
+	const T& operator[](const int i) const;
 	int exists(const int i);
 };
 
@@ -455,6 +466,7 @@ Array<T>::del(const int i) {
 	delete elements[i];
 	if (i != max)
 		memmove(&elements[i], &elements[i + 1], sizeof(T*) * (max - i));
+	elements[max] = NULL;
 	max--;
 }
 
@@ -498,6 +510,15 @@ Array<T>::pasteptr(const int i, T* ptr) {
 	delete elements[i];
 	elements[i] = ptr;
 }
+
+template <class T>
+const T&
+Array<T>::operator[](int i) const {
+
+	cassert(i >= 0);
+	cassert(i <= max);
+	return *elements[i];
+};
 
 template <class T>
 T&

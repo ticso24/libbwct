@@ -11,6 +11,23 @@
 #include <bwct/base.h>
 #include <bwct/ssl.h>
 
+static Mutex *locks;
+
+static void
+lock_callback(int mode, int type, const char *file, int line) {
+	(void)file;
+	(void)line;
+	if ((mode & CRYPTO_LOCK) != 0)
+		locks[type].lock();
+	else
+		locks[type].unlock();
+}
+
+static unsigned long
+id_callback(void) {
+	return ((unsigned long)pthread_self());
+}
+
 void
 CSSL::init() {
 	SSL_load_error_strings();
@@ -22,6 +39,11 @@ CSSL::init() {
 		r = rand();
 		RAND_seed(&r, sizeof(int));
 	} while(0 == RAND_status());
+
+	int nlocks = CRYPTO_num_locks();
+	locks = new Mutex[nlocks];
+	CRYPTO_set_locking_callback(lock_callback);
+	CRYPTO_set_id_callback(id_callback);
 }
 
 CSSL::Network::Network(Context *sc) {
@@ -308,7 +330,7 @@ CSSL::PKCS7::check(char *in, ssize_t insize, char* out, ssize_t outsize) {
 			throw Error("failed to allocate BIO");
 		BIO_write(bin, in, insize);
 		::PKCS7 *pkcs7;
-		BIO_reset(bout);
+		(void)BIO_reset(bout);
 		pkcs7 = SMIME_read_PKCS7(bin, NULL);
 		if (pkcs7 == NULL)
 			throw Error("failed to read signed message");
@@ -346,7 +368,7 @@ CSSL::PKCS7::sign(char *in, ssize_t insize, char* out, ssize_t outsize) {
 		pkcs7 = PKCS7_sign(x509, NULL, NULL, bin, 0);
 		if (pkcs7 == NULL)
 			throw Error("failed to sign message");
-		BIO_reset(bout);
+		(void)BIO_reset(bout);
 		if (SMIME_write_PKCS7(bout, pkcs7, bin, 0) != 0)
 			throw Error("failed to sign message");
 		size_t ret = BIO_read(bout, out, outsize);
