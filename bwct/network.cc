@@ -447,8 +447,8 @@ Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	struct servent *sent = getservbyname(port.c_str(), "tcp");
 	if (sent == NULL)
 		throw Error("getservbyname failed");
-	a_ptr<struct sockaddr> sa;
-	sa = (struct sockaddr*) new char[SOCK_MAXADDRLEN];
+	a_ptr<struct sockaddr_in> sa;
+	sa = (struct sockaddr_in*) new char[SOCK_MAXADDRLEN];
 	int i = 0;
 	do {
 		sa->sin_family = family;
@@ -468,7 +468,7 @@ Network::Listen::add_tcp(const String& name, const String& port, int family) {
 		val = SOCKSBUF;
 		setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &val,
 		sizeof(val));
-		bind(lfd, sa.get(), SOCK_MAXADDRLEN);
+		bind(lfd, (sockaddr_in*)sa.get(), SOCK_MAXADDRLEN);
 		listen(lfd, 128);
 		val = fcntl(lfd, F_GETFL, 0);
 		fcntl(lfd, F_SETFL, val | O_NONBLOCK);
