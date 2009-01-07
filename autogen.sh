@@ -9,7 +9,7 @@
 # $Rev$
 #
 
-aclocal19 -I aclocal && \
-autoheader259 && \
-automake19 --foreign --add-missing --copy && \
-autoconf259
+aclocal-1.9 -I aclocal && \
+autoheader-2.62 && \
+automake-1.9 --foreign --add-missing --copy && \
+autoconf-2.62
