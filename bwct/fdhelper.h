@@ -36,7 +36,7 @@ public:
 	virtual ssize_t write(const void *vptr, size_t n);
 	virtual ssize_t readv(SArray<struct iovec>& data);
 	virtual ssize_t writev(SArray<struct iovec>& data);
-	virtual void open(const String& path, int flags = O_RDONLY);
+	virtual void open(const String& path, int flags = O_RDONLY, int mode = 0x644);
 	virtual int64_t lseek(int64_t offset, int whence = SEEK_SET);
 	virtual const String& getpeername();
 	virtual int ioctl(unsigned long request, void *argp = NULL);
