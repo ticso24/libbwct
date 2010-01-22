@@ -12,6 +12,7 @@
 #include <bwct/network.h>
 
 Network::Net::Net(int nfd) {
+	timeout = -1;
 	fd = nfd;
 	cassert(opened());
 	canon = 0;
