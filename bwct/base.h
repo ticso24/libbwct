@@ -18,9 +18,6 @@
 #include <sys/types.h>
 #include <sys/time.h>
 
-#ifdef HAVE_SYS_CHIO_H
-# include <sys/chio.h>
-#endif
 #include <sys/ioctl.h>
 #include <sys/resource.h>
 #include <sys/socket.h>
@@ -31,38 +28,6 @@
 
 #ifdef HAVE_MMAP
 # include <sys/mman.h>
-#endif
-
-#if HAVE_SYS_GENTAPE_H
-# include <sys/gentape.h>
-#else
-# if HAVE_SYS_TAPE_H
-#  if HAVE_SYS_DEVICE_H
-#   include <sys/device.h>
-#  endif
-#  if HAVE_SYS_BUF_H
-#   include <sys/buf.h>
-#  endif
-#  if HAVE_SYS_TPRINTF_H
-#   include <sys/tprintf.h>
-#  endif
-#  include <sys/tape.h>
-# else
-#  if HAVE_SYS_MTIO_H
-#   include <sys/ioctl.h>
-#   if HAVE_TERMIOS_H
-#    include <termios.h>
-#   else
-#    if HAVE_SGTTY_H
-#     include <sgtty.h>
-#    endif
-#   endif
-#   if HAVE_SYS_IO_TRIOCTL_H
-#    include <sys/io/trioctl.h>
-#   endif
-#   include <sys/mtio.h>
-#  endif
-# endif
 #endif
 
 #include <arpa/inet.h>
@@ -132,26 +97,6 @@ typedef uint32_t socklen_t
 
 #ifndef SOCK_MAXADDRLEN
 # define SOCK_MAXADDRLEN 255
-#endif
-
-#ifndef MTREW
-# ifdef STREW
-#  define MTREW STREW
-#  define MTBSF STBSF
-#  define MTFSF STFSF
-#  define MTWEOF STWEOF
-#  define MTOFFL STOFFL
-#  define MTIOCTOP STIOCTOP
-#  define MTIOCMD STIOCMD
-#  define MTIOCHGP STIOCHGP
-typedef stop mtop;
-# endif
-#endif
-
-#if 0
-#ifndef MTEOD
-# define MTEOD MTEOM
-#endif
 #endif
 
 /*
