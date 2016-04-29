@@ -222,7 +222,7 @@ public:
 template <class T>
 void
 Matrix<T>::setsize(size_t newsize) {
-	if (newsize <= size)
+	if (newsize <= num)
 		return;
 	T *newdata = new T[num];
 	for (int i = 0; i < MIN(newsize, num); i++)
