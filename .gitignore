@@ -18,3 +18,4 @@ config.log
 config.status
 libbwct-config
 libbwct.a
+libbwct-*.tar.gz
