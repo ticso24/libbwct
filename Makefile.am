@@ -20,14 +20,12 @@ include_HEADERS =	bwct/base.h \
 			bwct/tool.h \
 			bwct/fdhelper.h \
 			bwct/bsd.h \
-			bwct/ssl.h \
 			bwct/network.h \
 			bwct/compress.h
 libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/tool.cc \
 			bwct/fdhelper.cc \
 			bwct/bsd.cc \
-			bwct/ssl.cc \
 			bwct/network.cc \
 			bwct/compress.cc
 m4datadir =		$(datadir)/aclocal
