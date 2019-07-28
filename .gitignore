@@ -9,3 +9,12 @@ configure
 depcomp
 install-sh
 missing
+.deps/
+Makefile
+*.o
+bwct/config.h
+bwct/stamp-h1
+config.log
+config.status
+libbwct-config
+libbwct.a
