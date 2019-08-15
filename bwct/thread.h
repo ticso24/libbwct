@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -15,56 +16,47 @@ class Thread;
 class Mutex;
 class CV;
 
-#include <bwct/base.h>
-#ifdef HAVE_PTHREAD
+#include <bwct/bwct.h>
 #include <pthread.h>
-#endif
-#include <bwct/tool.h>
 
 class Thread : public Base {
 protected:
 	~Thread();
 	void *retvalue;
+	void terminate();
 private:
-#ifdef HAVE_PTHREAD
 	pthread_t id;
-#else
-	pid_t id;
-#endif
 	Thread(Thread &src);
-#ifdef HAVE_PTHREAD
 	void detach();
-#endif
-	virtual void *threadstart() = 0;
 	virtual void threadend() = 0;
 	static void *starthelp(void *data);
 public:
+	virtual void *threadstart() = 0;
 	friend class Listen;
 	Thread();
 	Thread(const Thread& cpy);
-	void start();
-#ifdef HAVE_PTHREAD
+	virtual void start();
 	void join();
-#endif
+	void atforkwipe();
 };
 
-#ifdef HAVE_PTHREAD
 class Mutex : public Base {
 private:
 	pthread_mutex_t mutex;
 	Mutex(Mutex &src);
-	int lck;
-	int dead;
+	bool locked;
+	bool dead;
 public:
 	class Guard : public Base {
 	private:
 		Mutex *mtx;
-		int locked;
+		bool locked;
 	public:
 		Guard(Mutex& nmtx, bool lck = true);
 		~Guard();
 		void lock();
 		void unlock();
+		bool islocked();
 	};
 
 	friend class CV;
@@ -73,45 +65,10 @@ public:
 	int lock();
 	int trylock();
 	int unlock();
-	int locked();
+	bool islocked();
 	void setdead();
 };
-#else
-class Mutex : public Base {
-private:
-	Mutex(Mutex &src);
-public:
-	class Guard : public Base {
-	private:
-		Mutex *mtx;
-		int locked;
-	public:
-		Guard(Mutex& nmtx, bool lck = true);
-		~Guard();
-		void lock();
-		void unlock();
-	};
 
-	Mutex() {};
-	~Mutex() {};
-	int lock() {
-		return 0;
-	};
-	int trylock() {
-		return 0;
-	};
-	int unlock() {
-		return 0;
-	};
-	int locked() {
-		return 0;
-	};
-	void setdead() {
-	};
-};
-#endif
-
-#ifdef HAVE_PTHREAD
 class CV : public Base {
 private:
 	CV(CV &src);
@@ -120,15 +77,16 @@ public:
 	CV();
 	~CV();
 	int wait(Mutex &mtx);
+	int wait(Mutex &mtx, time_t timeout);
 	int signal();
 	int broadcast();
 };
 
-#ifdef FreeBSD
 class RW_Lock : public Base {
 private:
 	pthread_rwlock_t rwlock;
-	pthread_rwlockattr_t attr;
+// clang++: error: private field 'attr' is not used [-Werror,-Wunused-private-field]
+//	pthread_rwlockattr_t attr;
 public:
 	RW_Lock();
 	~RW_Lock();
@@ -138,17 +96,43 @@ public:
 	int tryrdlock();
 	int trywrlock();
 };
-#endif /* FreeBSD */
-#endif
 
 class cyclic : public Thread {
 private:
 	uint64_t period;
 	virtual void *threadstart();
+	virtual void threadend();
 public:
 	cyclic(uint64_t nperiod);
 	~cyclic();
 	virtual void job() = 0;
+};
+
+template <class T>
+class a_global : public Base {
+private:
+	Mutex mtx;
+	T* ptr;
+public:
+	a_global() {
+		ptr = NULL;
+	}
+	void init() {
+		if (ptr == NULL) {
+			Mutex::Guard mutex(mtx);
+			if (ptr == NULL) {
+				ptr = new T;
+			}
+			mutex.unlock();
+		}
+	}
+	bool isinit() const {
+		return (ptr != NULL);
+	}
+	T* operator->() {
+		init();
+		return ptr;
+	}
 };
 
 #endif /* !_THREAD */

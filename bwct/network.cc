@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03,04 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,04,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -8,15 +9,80 @@
  * $Rev$
  */
 
-#include <bwct/base.h>
-#include <bwct/network.h>
+#include "bwct.h"
+
+SArray<int> fdescs_to_close;
+
+Network::Net::Net() {
+	timeout = INFTIM;
+}
 
 Network::Net::Net(int nfd) {
-	timeout = -1;
 	fd = nfd;
 	cassert(opened());
+	timeout = INFTIM;
 	canon = 0;
 	retrievepeername();
+}
+
+Network::Net::~Net() {
+}
+
+String
+Network::Net::getpeername() {
+	return peername;
+}
+
+String
+Network::Net::getpeeraddr() {
+	return peeraddr;
+}
+
+void
+Network::Net::connect_tcp4(const String& name, const String& port) {
+	connect_tcp(name, port, AF_INET);
+}
+
+void
+Network::Net::connect_tcp6(const String& name, const String& port) {
+	connect_tcp(name, port, AF_INET6);
+}
+
+ssize_t
+Network::Net::read(void *vptr, size_t n) {
+	return File::read(vptr, n);
+}
+
+ssize_t
+Network::Net::write(const void *vptr, size_t n) {
+	return File::write(vptr, n);
+}
+
+ssize_t
+Network::Net::write(const char *data)
+{
+	return File::write(data);
+}
+
+ssize_t
+Network::Net::write(const String& data)
+{
+	return File::write(data);
+}
+
+void
+Network::Net::settimeout(int nval) {
+	timeout = nval;
+}
+
+void
+Network::Net::nonblocking(bool flag) {
+	int val;
+	val = fcntl(fd, F_GETFL, 0);
+	if (flag)
+		fcntl(fd, F_SETFL, val | O_NONBLOCK);
+	else
+		fcntl(fd, F_SETFL, val & ~O_NONBLOCK);
 }
 
 void
@@ -41,19 +107,105 @@ Network::Net::connect_UDS (const String& path) {
 	bzero(&addr, sizeof(addr));
 	addr.sun_family = AF_UNIX;
 	strcpy(addr.sun_path, path.c_str());
-	val = fcntl(fd, F_GETFL, 0);
 	if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
 		::close (fd);
 		fd = -1;
 		throw Error(String("connecting ") + path + " failed");
 	}
-	fcntl(fd, F_SETFL, val | O_NONBLOCK);
+	nonblocking(1);
 	peername = sgethostname();
 }
 
-#ifdef HAVE_GETNAMEINFO
 void
-Network::Net::connect_tcp(const String& name, const String& port, int family) {
+Network::Net::connect_tcp(const Array<String>& names, const String& port, int ms_timeout, int family)
+{
+	bool connected = false;
+
+	for (int i = 0; i <= names.max && !connected; i++) {
+		struct addrinfo *info;
+		struct addrinfo *infosave;
+		struct addrinfo hints;
+		const char *cname;
+		const char *cport;
+		int res;
+		int val;
+
+		cname = (names[i].length() == 0) ? NULL : names[i].c_str();
+		cport = (port.length() == 0) ? NULL : port.c_str();
+		bzero(&hints, sizeof(hints));
+		hints.ai_flags = AI_CANONNAME;
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_family = family;
+		res = getaddrinfo(cname, cport, &hints, &info);
+		infosave = info;
+		if (res != 0) {
+			syslog(LOG_NOTICE, "getaddrinfo failed for %s: %s", names[i].c_str(), gai_strerror(res));
+		} else {
+			do {
+				fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
+				if (!opened()) {
+					freeaddrinfo(infosave);
+					throw Error("failed to get socket");
+				}
+				val = SOCKSBUF;
+				setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
+				val = SOCKSBUF;
+				setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
+				nonblocking(1);
+				res = connect(fd, info->ai_addr, info->ai_addrlen);
+				if (res == 0) {
+					// we have a connection
+					connected = true;
+					break;
+				} else if (errno == EINPROGRESS) {
+					// we have to wait for connection
+					{
+						struct pollfd pfd;
+						int res;
+
+						pfd.fd = fd;
+						pfd.events = POLLOUT;
+						pfd.revents = 0;
+						do {
+							// XXX in case of interrupted system calls we wait full
+							// time again, but it's not likely to happen
+							res = poll(&pfd, 1, ms_timeout);
+						} while (res == -1 && errno == EINTR);
+						if (res == 1) {
+							// we have a connection
+							connected = true;
+							break;
+						} else {
+							// we have a timeout or other connection problem
+							// close socket and try next resource
+							close();
+						}
+					}
+				} else {
+					close();
+				}
+			} while ((info = info->ai_next) != NULL);
+			if (connected) {
+				peeraddr = "";
+				if (info->ai_canonname != NULL) {
+					peername = info->ai_canonname;
+				} else {
+					peername = names[i];
+				}
+				peerport = port;
+			}
+			freeaddrinfo(infosave);
+		}
+	}
+	if (!connected) {
+		throw Error(String("connecting [") + S.join(names, ", ") + "]:" +
+		    port + " failed: " + strerror(errno));
+	}
+}
+
+void
+Network::Net::connect_tcp(const String& name, const String& port, int family)
+{
 	struct addrinfo *info;
 	struct addrinfo *infosave;
 	struct addrinfo hints;
@@ -79,16 +231,16 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 	do {
 		fd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
 		if (!opened()) {
+			freeaddrinfo(infosave);
 			throw Error("failed to get socket");
 		}
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
-		val = fcntl(fd, F_GETFL, 0);
 		res = connect(fd, info->ai_addr, info->ai_addrlen);
 		if (res == 0) {
-			fcntl(fd, F_SETFL, val | O_NONBLOCK);
+			nonblocking(1);
 			break;
 		} else {
 			close();
@@ -109,62 +261,10 @@ Network::Net::connect_tcp(const String& name, const String& port, int family) {
 	freeaddrinfo(infosave);
 }
 
-#else
-
-void
-Network::Net::connect_tcp(const String& name, const String& port, int family) {
-	if (family == AF_UNSPEC)
-		family = AF_INET;
-	if (family != AF_INET)
-		throw Error("AF unsupported");
-	struct hostent *hent = gethostbyname(name.c_str());
-	if (hent == NULL)
-		throw Error("gethostbyname failed");
-	if (hent->h_addrtype != AF_INET)
-		throw Error("gethostbyname returned different AF");
-	struct servent *sent = getservbyname(port.c_str(), "tcp");
-	if (sent == NULL)
-		throw Error("getservbyname failed");
-	a_ptr<struct sockaddr_in> sa;
-	sa = new struct sockaddr_in;
-	int res = -1;
-	int i = 0;
-	do {
-		sa->sin_family = family;
-		sa->sin_port = sent->s_port;
-		bcopy (&hent->h_addr_list[i], &(sa->sin_addr),
-		    hent->h_length);
-		fd = socket(family, SOCK_STREAM, PF_INET);
-		int val;
-		val = SOCKSBUF;
-		setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val));
-		val = SOCKSBUF;
-		setsockopt(fd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
-		val = fcntl(fd, F_GETFL, 0);
-		res = connect(fd, (sockaddr*)sa.get(),
-		    sizeof(struct sockaddr_in));
-		if (res == 0) {
-			fcntl(fd, F_SETFL, val | O_NONBLOCK);
-			break;
-		} else {
-			close();
-		}
-		i++;
-	} while (hent->h_addr_list[i] != NULL);
-	if (res != 0) {
-		throw Error(String("connecting [") + name + "]:" +
-		    port + " failed");
-	}
-	peername = hent->h_name;
-	peerport = port;
-	peeraddr = "";
-}
-#endif
-
-#ifdef HAVE_GETNAMEINFO
 int
 Network::Net::retrievepeername() {
-	struct addrinfo *addrn, *addr0;
+	struct addrinfo *addrn;
+	struct addrinfo *addr0;
 	struct addrinfo hints;
 	int res;
 	Matrix<char> port(NI_MAXHOST);
@@ -182,9 +282,9 @@ Network::Net::retrievepeername() {
 	strcpy(ip.get(), "unresolved");
 	strcpy(name.get(), "unresolved");
 
-	Matrix<char> addrdt(MAXSOCKADDR);
+	Matrix<char> addrdt(SOCK_MAXADDRLEN);
 	struct sockaddr *addr = (struct sockaddr*)addrdt.get();
-	addrlen = MAXSOCKADDR;
+	addrlen = SOCK_MAXADDRLEN;
 	res = ::getsockname(fd, addr, &addrlen);
 	if (res < 0)
 		goto failed;
@@ -211,7 +311,7 @@ Network::Net::retrievepeername() {
 	res = getaddrinfo(name.get(), NULL, &hints, &addr0);
 	if (res) { /* we failed to forward map */
 		strncpy (name.get(), ip.get(), NI_MAXHOST);
-		return -1;
+		goto failed;
 	}
 	/*
 	 * now check if the original IP is in the set returned by the
@@ -243,22 +343,8 @@ ok:
 	return ret;
 }
 
-#else
-
-int
-Network::Net::retrievepeername() {
-	// TODO: implement
-	//       It's not essential as we use SSL-Certs CN.
-	peername = "";
-	peeraddr = "";
-	peerport = "";
-	return 0;
-}
-#endif
-
 void
-Network::Net::waitread() {
-	// TODO: use kevent & select
+Network::Net::mywaitread() {
 	struct pollfd pfd;
 	int res;
 
@@ -269,14 +355,19 @@ Network::Net::waitread() {
 		res = poll(&pfd, 1, timeout);
 	} while (res == -1);
 	if (res == 0) {
-		throw Error("read timeout");
+		throw Error("read timeout", false);
+	}
+	if (pfd.revents & POLLHUP) {
+		throw Error("socket disconnected");
+	}
+	if (pfd.revents & POLLERR) {
+		throw Error("poll error");
 	}
 	return;
 }
 
 void
-Network::Net::waitwrite() {
-	// TODO: use kevent & select
+Network::Net::mywaitwrite() {
 	struct pollfd pfd;
 	int res;
 
@@ -289,6 +380,12 @@ Network::Net::waitwrite() {
 	if (res == 0) {
 		throw Error("write timeout");
 	}
+	if (pfd.revents & POLLHUP) {
+		throw Error("socket disconnected");
+	}
+	if (pfd.revents & POLLERR) {
+		throw Error("poll error");
+	}
 	return;
 }
 
@@ -296,38 +393,80 @@ String
 Network::Net::tinfo() const {
 	String ret;
 	ret << "(" << typeid(*this).name() << "@" << this <<
-	    ", fd=" << fd << ", peer=" << peername << ")";
+	    ", fd=" << fd << ", peer=" << peeraddr << ")";
 	return ret;
 }
 
+Network::Listen::Listen() {
+}
+
+Network::Listen::~Listen() {
+	for(int i = 0; i < lfds.max; i++) {
+		for (int j = 0; j <= fdescs_to_close.max; j++) {
+			if (fdescs_to_close[j] == lfds[i]) {
+				j--;
+				fdescs_to_close.del(j);
+			}
+		}
+		close(lfds[i]);
+	}
+}
+
 int
+Network::Listen::add_tcpv4(const String& name, const String& port, int queuelen) {
+	return add_tcp(name, port, queuelen, AF_INET);
+}
+
+int
+Network::Listen::add_tcpv6(const String& name, const String& port, int queuelen) {
+	return add_tcp(name, port, queuelen, AF_INET6);
+}
+
+void
 Network::Listen::loop() {
 	// TODO: use poll & kevent
-	cassert (maxfd >= 0);
+	cassert (lfds.max >= 0);
 	for (;;) {
-		fd_set fds;
+		struct pollfd pfd[lfds.max + 1];
 		int res;
+		for (int i = 0; i <= lfds.max; i++) {
+			pfd[i].fd = lfds[i];
+			pfd[i].events = POLLIN;
+			pfd[i].revents = 0;
+		}
 		do {
-			memcpy(&fds, &lfds, sizeof(fd_set));
-			res = select(maxfd + 1, &fds, NULL, NULL, NULL);
+			res = poll(pfd, lfds.max + 1, INFTIM);
 		} while (res < 0);
-		for (int i = 0; i <= maxfd; i++) {
-			if (FD_ISSET(i, &fds)) {
-				int clientfd = accept(i, NULL, NULL);
+		for (int i = 0; i <= lfds.max; i++) {
+			if (pfd[i].revents) {
+				int clientfd = accept(lfds[i], NULL, NULL);
 				if (clientfd < 0 ) {
 					if (errno == EINTR || errno == EAGAIN)
 						continue;
 				} else {
-					try {
-						// makestarter a virtual Listen function
-						FTask *newthread = newtask();
-						cassert(newthread != NULL);
-						newthread->setfile(newcon(clientfd));
-						newthread->start();
-					} catch (std::exception& e) {
-						syslog(LOG_INFO, "exception: %s", e.what());
-					} catch (...) {
-						syslog(LOG_INFO, "unknown exception");
+					pid_t child = fork();
+					if (child == 0) {
+						try {
+							/// close listen FDs
+							for (int j = 0; j <= fdescs_to_close.max; j++) {
+								close(fdescs_to_close[j]);
+							}
+							/// process request
+							FTask *newthread = newtask();
+							newthread->setfile(newcon(clientfd));
+							newthread->threadstart();
+						} catch (std::exception& e) {
+							syslog(LOG_INFO, "exception: %s", e.what());
+							exit(1);
+						} catch (...) {
+							syslog(LOG_INFO, "unknown exception");
+							exit(1);
+						}
+						exit(0);
+					}
+					close (clientfd);
+					if (child != -1) {
+						/// TODO bookkeeping
 					}
 				}
 			}
@@ -336,27 +475,14 @@ Network::Listen::loop() {
 	}
 }
 
-Network::Listen::Listen() {
-	maxfd = -1;
-	FD_ZERO(&lfds);
-}
-
-Network::Listen::~Listen() {
-	for(int i = 0; i < maxfd; i++)
-		if (FD_ISSET(i, &lfds))
-			close(i);
-}
-
 void
 Network::Listen::addfd(int nfd) {
-	// XXX: check for overflow
-	FD_SET(nfd, &lfds);
-	if (nfd > maxfd)
-		maxfd = nfd;
+	lfds << nfd;
+	fdescs_to_close << nfd;
 }
 
 int
-Network::Listen::add_UDS(const String& path, int flags) {
+Network::Listen::add_UDS(const String& path, int flags, int queuelen) {
 	struct sockaddr_un aun;
 	int lfd;
 	int val;
@@ -374,7 +500,7 @@ Network::Listen::add_UDS(const String& path, int flags) {
 	val = SOCKSBUF;
 	setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &val, sizeof(val));
 	bind(lfd, (struct sockaddr*)&aun, sizeof(aun));
-	listen(lfd, 128);
+	listen(lfd, queuelen);
 	val = fcntl(lfd, F_GETFL, 0);
 	fcntl(lfd, F_SETFL, val | O_NONBLOCK);
 	chmod(path.c_str(), flags);
@@ -382,9 +508,8 @@ Network::Listen::add_UDS(const String& path, int flags) {
 	return 0;
 }
 
-#ifdef HAVE_GETNAMEINFO
 int
-Network::Listen::add_tcp(const String& name, const String& port, int family) {
+Network::Listen::add_tcp(const String& name, const String& port, int queuelen, int family) {
 	struct addrinfo *info;
 	struct addrinfo *infosave;
 	struct addrinfo hints;
@@ -403,27 +528,25 @@ Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	cport = (port.length() == 0) ? NULL : port.c_str();
 	res = getaddrinfo(cname, cport, &hints, &info);
 	if (res) {
-		syslog(LOG_EMERG, "getaddrinfo failed: %s",
-		gai_strerror(res));
+		syslog(LOG_EMERG, "getaddrinfo failed: %s", gai_strerror(res));
 		cassert(0);
 	}
 	infosave = info;
 	do {
-		lfd = socket(info->ai_family, info->ai_socktype,
-		info->ai_protocol);
+		lfd = socket(info->ai_family, info->ai_socktype, info->ai_protocol);
 		cassert(lfd >= 0);
 		cox(lfd);
 		val = 1;
 		setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &val,
-		sizeof(val));
+		    sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(lfd, SOL_SOCKET, SO_RCVBUF, &val,
-		sizeof(val));
+		    sizeof(val));
 		val = SOCKSBUF;
 		setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &val,
 		sizeof(val));
 		bind(lfd, info->ai_addr, info->ai_addrlen);
-		listen(lfd, 128);
+		listen(lfd, queuelen);
 		val = fcntl(lfd, F_GETFL, 0);
 		fcntl(lfd, F_SETFL, val | O_NONBLOCK);
 		addfd(lfd);
@@ -431,54 +554,6 @@ Network::Listen::add_tcp(const String& name, const String& port, int family) {
 	freeaddrinfo(infosave);
 	return 0;
 }
-
-#else
-
-int
-Network::Listen::add_tcp(const String& name, const String& port, int family) {
-	if (family == AF_UNSPEC)
-		family = AF_INET;
-	if (family != AF_INET)
-		throw Error("AF unsupported");
-	struct hostent *hent = gethostbyname(name.c_str());
-	if (hent == NULL)
-		throw Error("gethostbyname failed");
-	if (hent->h_addrtype != AF_INET)
-		throw Error("gethostbyname returned different AF");
-	struct servent *sent = getservbyname(port.c_str(), "tcp");
-	if (sent == NULL)
-		throw Error("getservbyname failed");
-	a_ptr<struct sockaddr_in> sa;
-	sa = (struct sockaddr_in*) new char[SOCK_MAXADDRLEN];
-	int i = 0;
-	do {
-		sa->sin_family = family;
-		sa->sin_port = sent->s_port;
-		bcopy (&hent->h_addr_list[i], &(sa->sin_addr),
-		    hent->h_length);
-		int lfd = socket(family, SOCK_STREAM, PF_INET);
-		cassert(lfd >= 0);
-		cox(lfd);
-		int val;
-		val = 1;
-		setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &val,
-		sizeof(val));
-		val = SOCKSBUF;
-		setsockopt(lfd, SOL_SOCKET, SO_RCVBUF, &val,
-		sizeof(val));
-		val = SOCKSBUF;
-		setsockopt(lfd, SOL_SOCKET, SO_SNDBUF, &val,
-		sizeof(val));
-		bind(lfd, (sockaddr_in*)sa.get(), SOCK_MAXADDRLEN);
-		listen(lfd, 128);
-		val = fcntl(lfd, F_GETFL, 0);
-		fcntl(lfd, F_SETFL, val | O_NONBLOCK);
-		addfd(lfd);
-		i++;
-	} while (hent->h_addr_list[i] != NULL);
-	return 0;
-}
-#endif
 
 void
 Network::Listen::ncox(int fd) {

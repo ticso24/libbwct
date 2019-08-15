@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -11,7 +12,9 @@
 #ifndef _NETWORK
 #define _NETWORK
 
-#include <bwct/fdhelper.h>
+#include "fdhelper.h"
+
+extern SArray<int> fdescs_to_close;
 
 class Network {
 private:
@@ -24,68 +27,50 @@ public:
 		String peerport;
 		int timeout;
 		virtual int retrievepeername();
+		virtual void mywaitread();
+		virtual void mywaitwrite();
 	private:
 		int canon;
 	public:
-		Net() {
-			timeout = INFTIM;
-		}
+		Net();
 		Net(int nfd);
-		~Net() {
-		}
-		ssize_t read(void *vptr, size_t n) {
-			return File::read(vptr, n);
-		}
-		ssize_t write(const void *vptr, size_t n) {
-			return File::write(vptr, n);
-		}
-		void settimeout(int nval) {
-			timeout = nval;
-		}
+		~Net();
+		ssize_t read(void *vptr, size_t n);
+		virtual ssize_t write(const void *vptr, size_t n);
+		virtual ssize_t write(const char *data);
+		virtual ssize_t write(const String& data);
+		void settimeout(int nval);
 		virtual void connect_UDS(const String& path);
+		virtual void connect_tcp(const Array<String>& names, const String& port,
+		    int ms_timeout = 500, int family = AF_UNSPEC);
 		virtual void connect_tcp(const String& name, const String& port,
 		    int family = AF_UNSPEC);
-		virtual void connect_tcp4(const String& name, const String& port) {
-			connect_tcp(name, port, AF_INET);
-		}
-#ifdef HAVE_GETNAMEINFO
-		virtual void connect_tcp6(const String& name, const String& port) {
-			connect_tcp(name, port, AF_INET6);
-		}
-#endif
-		const String& getpeername() {
-			return peername;
-		}
-		virtual void waitread();
-		virtual void waitwrite();
+		virtual void connect_tcp4(const String& name, const String& port);
+		virtual void connect_tcp6(const String& name, const String& port);
+		virtual String getpeername();
+		virtual String getpeeraddr();
 		virtual String tinfo() const;
 		void nodelay(int flag);
+		void nonblocking(bool flag);
 	};
 
 	class Listen : public Base {
-	private:
-		int maxfd;
-		fd_set lfds;
+	protected:
+		SArray<int> lfds;
 		void addfd(int nfd);
 		void ncox(int fd);
 		void cox(int fd);
 		virtual Net *newcon(int clientfd);
 		virtual FTask *newtask() = 0;
 	public:
-		int loop();
+		void loop();
 		Listen();
 		~Listen();
-		int add_UDS(const String& path, int flags);
-		int add_tcpv4(const String& name, const String& port) {
-			return add_tcp(name, port, AF_INET);
-		}
-	#ifdef HAVE_GETNAMEINFO
-		int add_tcpv6(const String& name, const String& port) {
-			return add_tcp(name, port, AF_INET6);
-		}
-	#endif
+		int add_UDS(const String& path, int flags, int queuelen);
+		int add_tcpv4(const String& name, const String& port, int queuelen);
+		int add_tcpv6(const String& name, const String& port, int queuelen);
 		int add_tcp(const String& name, const String& port,
-		    int family = AF_UNSPEC);
+		    int queuelen, int family = AF_UNSPEC);
 	};
 };
 

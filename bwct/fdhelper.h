@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -14,19 +15,33 @@
 class File;
 class Stat;
 
-#include <bwct/tool.h>
-#include <bwct/thread.h>
+#include "tool.h"
+#include "thread.h"
+#include "bwct.h"
+
+class Network;
 
 class File : public Base {
+	friend class Network;
+	friend class Stat;
+private:
+	char readbuf[8*1024];
+	char* rbufpos;
+	size_t rbufsize;
+	
 protected:
-	int fd;
 	String filename;
 	virtual ssize_t readn(void *vptr, size_t n);
 	virtual ssize_t writen(const void *vptr, size_t n);
+	virtual void mywaitread();
+	virtual void mywaitwrite();
 public:
+	int fd; // should be protected, but GCC 3.4.6 don't accept Friend status on Network::Net
 	virtual int opened() const;
 	File();
 	File(const File& file);
+	File(const String& path, int flags = O_RDONLY);
+	File(int nfd);
 	~File();
 	virtual void close();
 	virtual int flush();
@@ -34,37 +49,24 @@ public:
 	virtual ssize_t microwrite(const void *vptr, size_t n);
 	virtual ssize_t read(void *vptr, size_t n);
 	virtual ssize_t write(const void *vptr, size_t n);
-	virtual ssize_t readv(SArray<struct iovec>& data);
-	virtual ssize_t writev(SArray<struct iovec>& data);
-	virtual void open(const String& path, int flags = O_RDONLY, int mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	virtual ssize_t write(const char *data);
+	virtual ssize_t write(const String& data);
+	virtual String readline(size_t maxlength = 2048, bool noeoferr = false);
+	virtual void open(const String& path, int flags = O_RDONLY, int mode = 0000644);
 	virtual int64_t lseek(int64_t offset, int whence = SEEK_SET);
-	virtual const String& getpeername();
+	virtual String getpeername();
+	virtual String getpeeraddr();
 	virtual int ioctl(unsigned long request, void *argp = NULL);
-	virtual void waitread();
-	virtual void waitwrite();
 	virtual void ncox();
 	virtual void cox();
 	virtual String tinfo() const;
-#ifdef HAVE_MMAP
 	virtual void *mmap(size_t len, off_t offset);
 	virtual int munmap(void *addr, size_t len);
-#endif
-};
-
-class Memfile : public File {
-protected:
-	ssize_t pos;
-public:
-	Matrix<char> *data;
-	Memfile(Matrix<char>& rhs);
-	Memfile(const Memfile& rhs);
-	void clear();
-	virtual ssize_t read(void *vptr, size_t n);
-	virtual ssize_t write(const void *vptr, size_t n);
-	virtual ssize_t readv(SArray<struct iovec>& data);
-	virtual ssize_t writev(SArray<struct iovec>& data);
-	virtual int flush();
-	virtual int64_t lseek(int64_t offset, int whence);
+	virtual ssize_t sendfile(File &infile);
+	static String realpath(String path);
+	static String abspath(String path);
+	void waitread();
+	void waitwrite();
 };
 
 class FTask : public Thread {
@@ -111,23 +113,20 @@ public:
 
 	Stat();
 	Stat(const String path);
+	Stat(File &rhs);
 	~Stat();
 	int stat(const String& path);
 	int lstat(const String& path);
 	int fstat(int fd);
-	int is_link();
-	int is_reg();
-	int is_dir();
+	bool is_link();
+	bool is_reg();
+	bool is_dir();
 };
 
 class Dir : public Base {
 private:
 	DIR *dir;
-#if HAVE_READDIR64
-	struct dirent64 *entry;
-#else
 	struct dirent *entry;
-#endif
 public:
 	String dirname;
 	String name;

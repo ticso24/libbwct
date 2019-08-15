@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2002 Bernd Walter Computer Technology
+ * Copyright (c) 2002,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -11,13 +12,12 @@
 #ifndef _COMPRESS
 #define _COMPRESS
 
-#include <bwct/fdhelper.h>
+#include "bwct.h"
 #ifdef HAVE_LIBZ
 #include <zlib.h>
 #endif
 #ifdef HAVE_LIBBZ2
 #include <bzlib.h>
-// some bz2 versions have different function names :(
 #ifndef HAVE_BZ2_BZCOMPRESSINIT
 #ifdef HAVE_BZCOMPRESSINIT
 #define BZ2_bzCompressEnd bzCompressEnd
@@ -36,6 +36,8 @@ protected:
 	bool iscomp; // true if file is compressed
 	virtual ssize_t microread(void *vptr, size_t n) = 0;
 	virtual ssize_t microwrite(const void *vptr, size_t n) = 0;
+	virtual void mywaitread() = 0;
+	virtual void mywaitwrite() = 0;
 public:
 	Cmpfile();
 	virtual void cmpinit(int comp, int iscomp) = 0;
@@ -43,8 +45,6 @@ public:
 	virtual ssize_t writev(SArray<struct iovec>& data);
 	virtual int64_t lseek(int64_t offset, int whence = SEEK_SET);
 	virtual int ioctl(unsigned long request, void *argp = NULL);
-	virtual void waitread() = 0;
-	virtual void waitwrite() = 0;
 };
 
 #ifdef HAVE_LIBZ
@@ -57,12 +57,12 @@ protected:
 	virtual ssize_t microread(void *vptr, size_t n);
 	virtual ssize_t microwrite(const void *vptr, size_t n);
 	virtual void cmpinit(int comp, int iscomp);
+	virtual void mywaitread();
+	virtual void mywaitwrite();
 public:
 	Zfile();
 	~Zfile();
 	virtual void close();
-	virtual void waitread();
-	virtual void waitwrite();
 };
 #endif
 
@@ -76,12 +76,12 @@ protected:
 	virtual ssize_t microread(void *vptr, size_t n);
 	virtual ssize_t microwrite(const void *vptr, size_t n);
 	virtual void cmpinit(int comp, int iscomp);
+	virtual void mywaitread();
+	virtual void mywaitwrite();
 public:
 	BZ2file();
 	~BZ2file();
 	virtual void close();
-	virtual void waitread();
-	virtual void waitwrite();
 };
 #endif
 

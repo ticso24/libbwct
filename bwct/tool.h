@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03,04 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,04,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -11,8 +12,11 @@
 #ifndef _TOOL
 #define _TOOL
 
+#include <pthread.h>
+
 class Base;
 class String;
+class Mutex;
 
 template <class T>
 class Array;
@@ -24,45 +28,74 @@ template <class T>
 class List;
 
 #ifndef DEBUG
-#define beep()
-#define beepme()
+#define dbg_beep()
+#define dbg_beepme()
 #define wassert(test)
 #define cassert(test)
 #define timer()
 #endif /* !DEBUG */
 
-#ifdef DEBUG
-#define beep() {							\
-	syslog (LOG_DEBUG, "beep: %s@%d in %s",				\
-	    __FILE__, __LINE__, __func__);				\
+#define dbg_stacksize() {									\
+	pthread_attr_t attr;									\
+	pthread_attr_init(&attr);								\
+	pthread_attr_get_np(pthread_self(), &attr);						\
+	size_t guardsize;									\
+	pthread_attr_getguardsize(&attr, &guardsize);						\
+	size_t stacksize;									\
+	void* stackbase;									\
+	pthread_attr_getstack(&attr, &stackbase, &stacksize);					\
+	pthread_attr_destroy(&attr);								\
+	void* stackpointer = &stackbase;							\
+	size_t stackleft = (size_t)((char*)stackpointer - (char*)stackbase);			\
+	if (stackleft < 1000)									\
+		abort();									\
+	syslog (LOG_DEBUG, "dbg_stacksize: %p stacksize=%lld guardsize=%lld stackleft=%lld stackbase=%p stackpointer=%p %s@%d in %s",			\
+	    pthread_self(), (long long)stacksize, (long long)guardsize, (long long)stackleft, stackbase, stackpointer, __FILE__, __LINE__, __func__);	\
 }
 
-#define beepme() {							\
-	syslog (LOG_DEBUG, "beep: %s %s@%d in %s",			\
-	    tinfo().c_str(), __FILE__, __LINE__, __func__);		\
+#define dbg_stacksizeme() {									\
+	pthread_attr_t attr;									\
+	pthread_attr_init(&attr);								\
+	pthread_attr_get_np(pthread_self(), &attr);						\
+	size_t guardsize;									\
+	pthread_attr_getguardsize(&attr, &guardsize);						\
+	size_t stacksize;									\
+	void* stackbase;									\
+	pthread_attr_getstack(&attr, &stackbase, &stacksize);					\
+	pthread_attr_destroy(&attr);								\
+	void* stackpointer = &stackbase;							\
+	size_t stackleft = (size_t)((char*)stackpointer - (char*)stackbase);			\
+	if (stackleft < 1000)									\
+		abort();									\
+	syslog (LOG_DEBUG, "dbg_stacksize: %p stacksize=%lld guardsize=%lld stackleft=%lld stackbase=%p stackpointer=%p %s %s@%d in %s",			\
+	    pthread_self(), (long long)stacksize, (long long)guardsize, (long long)stackleft, stackbase, stackpointer, tinfo().c_str(), __FILE__, __LINE__, __func__);	\
+}
+
+#ifdef DEBUG
+#define dbg_beep() {							\
+	syslog (LOG_DEBUG, "dbg_beep: %p %s@%d in %s",			\
+	    pthread_self(), __FILE__, __LINE__, __func__);		\
+}
+
+#define dbg_beepme() {								\
+	syslog (LOG_DEBUG, "dbg_beep: %p %s %s@%d in %s",			\
+	    pthread_self(), tinfo().c_str(), __FILE__, __LINE__, __func__);	\
 }
 
 #define timer() {							\
 	struct timeval tv;						\
 	gettimeofday(&tv, NULL);					\
-	syslog(LOG_DEBUG, "%s@%d in %s time: %ld %ld",			\
+	syslog(LOG_DEBUG, "%s@%d in %s time: %ld %06ld",		\
 	    __FILE__, __LINE__, __func__, tv.tv_sec, tv.tv_usec);	\
 }
 
 #define wassert(test)							\
 if (!(test)) {								\
 	syslog (LOG_CRIT,						\
-	    "assertion \"%s\" failed: %s@%d in %s",			\
+	    "assertion (%s) failed: %s@%d in %s",			\
 	    #test, __FILE__, __LINE__, __func__);			\
 }
 
-#define cassert(test)							\
-if (!(test)) {								\
-	syslog (LOG_EMERG,						\
-	    "assertion \"%s\" failed: %s@%d in %s",			\
-	    #test, __FILE__, __LINE__, __func__);			\
-	abort();							\
-}
 #endif /* DEBUG */
 
 #ifdef FREEDEBUG
@@ -72,6 +105,15 @@ if (!(test)) {								\
 		#ptr, __FILE__, __LINE__, __func__, ptr);		\
 	free(ptr);
 #endif /* FREEDEBUG */
+
+#define TError(str)							\
+	throw Error(tinfo() + ": " + str + " : " +			\
+	    __FILE__ + "@" + __LINE__ + " in " + __func__)
+
+#define XError(str)							\
+	throw Error(S + str + " : " +					\
+	    __FILE__ + "@" + __LINE__ + " in " + __func__)
+
 
 #define LL(v) ((long long)(v))
 
@@ -102,105 +144,95 @@ inline void cbswap64(uint64_t& data) {
 
 class Base {
 private:
-	int state;
-	int refcount;
+	volatile int refcount;
 public:
-	void log(const String& str);
-	void check() const {
-
-		cassert(refcount >= 0);
-	}
-	Base () {
-
-		refcount = 0;
-//		log("create");
-	}
-	virtual ~Base () {
-
-		check();
-		cassert(refcount == 0);
-		refcount = -1;
-//		log("destroy");
-	}
+	void log(int priority, const String& str) const;
+	void log(int priority, const char *str) const;
+	void log(const String& str) const;
+	void log(const char *str) const;
+	virtual void check() const;
+	Base();
+	virtual ~Base();
 	void addref();
 	void delref();
+	int getref() const
+	{
+		return refcount;
+	}
 	virtual String tinfo() const;
 };
 
-class String : public Base {
-private:
-	int ln;
-	char *data;
+#include <bwct/mstring.h>
+
+class Error : public std::exception {
 public:
-	String();
-	String(const char *rhs);
-	String(const Matrix<char>& rhs);
-	String(const String &rhs);
-	String(char rhs);
-	String(short rhs);
-	String(int rhs);
-	String(long rhs);
-	String(long long rhs);
-	String(unsigned char rhs);
-	String(unsigned short rhs);
-	String(unsigned int rhs);
-	String(unsigned long rhs);
-	String(unsigned long long rhs);
-	String(const void *rhs);
-	const String& operator= (const String &rhs);
-	const String& operator= (const Matrix<char>& rhs);
-	const String& operator= (const char *rhs);
-	const String& operator= (unsigned int rhs);
-	const String& operator= (unsigned long rhs);
-	const String& operator= (unsigned long long rhs);
-	const String& operator= (const void *rhs);
-	int length() const;
-	const char *c_str() const;
-	~String();
-	bool operator== (const String &rhs) const;
-	bool operator== (const Matrix<char>& rhs) const;
-	bool operator== (const char *rhs) const;
-	bool operator!= (const String &rhs) const;
-	bool operator!= (const Matrix<char>& rhs) const;
-	bool operator!= (const char *rhs) const;
-	template <class T>
-	String operator+(const T &rhs) const;
-	template <class T>
-	String& operator<<(const T &rhs);
-	String& operator+=(const String &rhs);
-	String& operator+=(const Matrix<char>& rhs);
-	String& operator+=(const char *rhs);
-	String& operator+=(char rhs);
-	String& operator+=(short rhs);
-	String& operator+=(int rhs);
-	String& operator+=(long rhs);
-	String& operator+=(long long rhs);
-	String& operator+=(unsigned char rhs);
-	String& operator+=(unsigned short rhs);
-	String& operator+=(unsigned int rhs);
-	String& operator+=(unsigned long rhs);
-	String& operator+=(unsigned long long rhs);
-	String& operator+=(const void *rhs);
-	void resize(int rhs);
-	bool empty() const;
-	const char *operator[] (const int i) const;
-	void lower();
-	void upper();
+	String msg;
+	Error(const char* msg, bool log = true) {
+		(this)->msg = msg;
+#ifdef DEBUG
+		if (log) {
+			syslog(LOG_INFO, "Error thrown: %s", msg);
+		}
+#endif
+	}
+	Error(const String& msg = "", bool log = true) {
+		(this)->msg = msg;
+#ifdef DEBUG
+		if (log) {
+			syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
+		}
+#endif
+	}
+	~Error() throw() {
+	}
+	virtual const char* what () const throw() {
+		return msg.c_str();
+	}
 };
 
-template <class T>
-String&
-String::operator<<(const T &rhs) {
-	*this += String(rhs);
-	return *this;
+#ifdef DEBUG
+#define abort_assert(test)						\
+if (!(test)) {								\
+	syslog (LOG_EMERG,						\
+	    "assertion (%s) failed: %s@%d in %s",			\
+	    #test, __FILE__, __LINE__, __func__);			\
+	abort();							\
 }
+#endif
 
-template <class T>
-String
-String::operator+(const T &rhs) const {
-	String nstr(*this);
-	nstr += rhs;
-	return nstr;
+#ifdef DEBUG
+#ifdef ASSERT_CORE
+#define cassert(test)							\
+if (!(test)) {								\
+	syslog (LOG_EMERG,						\
+	    "assertion (%s) failed: %s@%d in %s",			\
+	    #test, __FILE__, __LINE__, __func__);			\
+	abort();							\
+}
+#else
+#define cassert(test)							\
+if (!(test)) {								\
+	String inf = tinfo();						\
+	syslog (LOG_EMERG,						\
+	    "assertion (%s) failed: %s@%d in %s for %s",		\
+	    #test, __FILE__, __LINE__, __func__, inf.c_str());		\
+	String err = String ("assertion (") + #test			\
+	    + ") failed " + __FILE__ + "@" + __LINE__			\
+	    + " in " + __func__ + inf;					\
+	throw Error(err);						\
+}
+#endif /* ASSERT_CORE */
+#endif /* DEBUG */
+
+#define xassert(test)							\
+if (!(test)) {								\
+	syslog (LOG_EMERG,						\
+	    "assertion (%s) failed: %s@%d in %s",			\
+	    #test, __FILE__, __LINE__, __func__);			\
+	String err = String ("assertion (") + #test			\
+	    + ") failed " + __FILE__ + "@" + __LINE__			\
+	    + " in " + __func__;					\
+	throw Error(err);						\
 }
 
 template <class T>
@@ -224,7 +256,7 @@ void
 Matrix<T>::setsize(size_t newsize) {
 	if (newsize <= num)
 		return;
-	T *newdata = new T[num];
+	T *newdata = new T[newsize];
 	for (int i = 0; i < MIN(newsize, num); i++)
 		newdata[i] = data[i];
 	data = newdata;
@@ -266,58 +298,50 @@ Matrix<T>::get() const {
 	return data;
 }
 
-class Error : public std::exception {
-public:
-	String msg;
-	Error(const char* msg) {
-		(this)->msg = msg;
-#ifdef DEBUG
-		syslog(LOG_INFO, "Error thrown: %s", msg);
-#endif
-	}
-	Error(const String& msg = "") {
-		(this)->msg = msg;
-#ifdef DEBUG
-		syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
-#endif
-	}
-	~Error() throw() {
-	}
-	virtual const char* what () const throw() {
-		return msg.c_str();
-	}
-};
-
-/* simplified array for integral data types */
+/* simplified array for scalar data types */
 template <class T>
 class SArray : public Base {
 private:
 	int num_elem;
 	T *elements;
-	
+	void setsize(const int i);
+
 public:
 	int max;
 	SArray();
 	SArray(const SArray &src);
-	void del(const int i);
-	const SArray& operator= (const SArray &src);
+	SArray(SArray &&src);
 	~SArray();
+	void del(const int i);
+	void insert(const int i);
+	const SArray& operator= (const SArray &src);
+	const SArray& operator= (SArray &&src);
 	T& operator[](const int i);
+	T& operator<<(T rh);
 	const T& operator[](const int i) const;
+	int getsize();
+	T& getlast();
+	int indexof(T value);
+	int begin() const {
+		return 0;
+	}
+	int end() const {
+		return max + 1;
+	}
 };
 
 template <class T>
 SArray<T>::SArray () {
+	static_assert(std::is_scalar<T>::value, "type must be scalar");
 
 	max = -1;
-	num_elem = 8;
-	elements = (T *)calloc(num_elem, sizeof(T));
-	if (!elements)
-		throw std::bad_alloc();
+	num_elem = 0;
+	elements = NULL;
 }
 
 template <class T>
-SArray<T>::SArray (const SArray &src) {
+SArray<T>::SArray (const SArray &src) : Base() {
+	static_assert(std::is_scalar<T>::value, "type must be scalar");
 
 	max = src.max;
 	num_elem = src.num_elem;
@@ -328,8 +352,20 @@ SArray<T>::SArray (const SArray &src) {
 }
 
 template <class T>
-SArray<T>::~SArray () {
+SArray<T>::SArray (SArray &&src) : Base() {
+	static_assert(std::is_scalar<T>::value, "type must be scalar");
 
+	max = src.max;
+	src.max = -1;
+	num_elem = src.num_elem;
+	src.num_elem = 0;
+	elements = src.elements;
+	src.elements = NULL;
+}
+
+template <class T>
+SArray<T>::~SArray () {
+	check();
 	free (elements);
 }
 
@@ -337,7 +373,7 @@ template <class T>
 const SArray<T>&
 SArray<T>::operator= (const SArray &src) {
 
-	free (elements);
+	free(elements);
 	max = src.max;
 	num_elem = src.num_elem;
 	elements = (T *)calloc(num_elem, sizeof(T));
@@ -348,20 +384,68 @@ SArray<T>::operator= (const SArray &src) {
 }
 
 template <class T>
+const SArray<T>&
+SArray<T>::operator= (SArray &&src) {
+
+	std::swap(elements, src.elements);
+	std::swap(max, src.max);
+	std::swap(num_elem, src.num_elem);
+	return *this;
+}
+
+template <class T>
 void
 SArray<T>::del(const int i) {
 
-	if (i > max)
-		return;
+	abort_assert(i <= max);
+	abort_assert(i >= 0);
 	if (i != max)
-		memmove(&elements[i], &elements[i + 1], sizeof(T) * max - i);
+		memmove(&elements[i], &elements[i + 1], sizeof(T) * (max - i));
 	max--;
+}
+
+template <class T>
+void
+SArray<T>::setsize(const int i) {
+	if (i >= num_elem) {
+		int new_num = num_elem;
+		if (i >= 1024) {
+			new_num = (i + 1024) & ~1023;
+		} else {
+			new_num = (new_num > 0) ? new_num : 8;
+			while (i >= new_num) {
+				new_num *= 2;
+			}
+		}
+		T *tmp = (T *)realloc(elements, new_num * sizeof(T));
+		if (!tmp)
+			throw std::bad_alloc();
+		elements = tmp;
+		bzero((char*)&elements[num_elem],
+		    sizeof(T) * (new_num - num_elem));
+		num_elem = new_num;
+	}
+}
+
+template <class T>
+void
+SArray<T>::insert(const int i) {
+	cassert(i >= 0);
+	check();
+	if (i - 1 > max)
+		return;
+	setsize(max + 1);
+	if (i <= max) {
+		memmove(&elements[i + 1], &elements[i], sizeof(T*) * (max - i + 1));
+		max++;
+		elements[i] = 0;
+	}
+	check();
 }
 
 template <class T>
 const T&
 SArray<T>::operator[](int i) const {
-       
 	cassert(i >= 0);
 	cassert(i <= max);
 	return elements[i];
@@ -370,73 +454,151 @@ SArray<T>::operator[](int i) const {
 template <class T>
 T&
 SArray<T>::operator[](int i) {
-	int old_num;
-	T *tmp;
-	
+
 	cassert(i >= 0);
 	if (i > max) {
+		setsize(i);
 		max = i;
-		if (i >= num_elem) {
-			old_num = num_elem;
-			if (i >= 1024) {
-				num_elem = (i + 1024) & ~1023;
-			} else {
-				while (i >= num_elem)
-					num_elem *= 2;
-			}
-			tmp = (T *)realloc(elements, num_elem * sizeof(T));
-			if (!tmp)
-				throw std::bad_alloc();
-			elements = tmp;
-			bzero((char*)&elements[old_num],
-			    sizeof(T) * (num_elem - old_num));
-		}
 	}
 	return elements[i];
 };
 
 template <class T>
+T&
+SArray<T>::operator<<(T rh) {
+	(*this)[max + 1] = rh;
+	return elements[max];
+}
+
+template <class T>
+int
+SArray<T>::getsize() {
+	return max;
+}
+
+template <class T>
+T&
+SArray<T>::getlast() {
+	return elements[max];
+}
+
+template <class T>
+int
+SArray<T>::indexof(T value) {
+	for (int i = 0; i <= max; i++) {
+		if (elements[i] == value)
+			return i;
+	}
+	return -1;
+}
+
+template <class T>
 class Array : public Base {
 private:
 	int num_elem;
+protected:
 	T **elements;
 	void setsize(const int i);
 public:
 	int max;
 	Array();
 	Array(const Array &src);
+	Array(Array &&src);
+	~Array();
+	virtual void check() const;
 	void del(const int i);
 	void insert(const int i);
 	void clear(const int i);
 	T* cutptr(const int i);
 	void pasteptr(const int i, T* ptr);
-	const T& operator=(const Array &src);
-	~Array();
+	bool operator==(const Array &lh) const;
+	bool operator!=(const Array &lh) const;
+	const Array<T>& operator=(const Array &lh);
+	const Array<T>& operator=(Array &&lh);
 	T& operator[](const int i);
 	const T& operator[](const int i) const;
+	T& operator<<(const T &rh);
+	T& operator<<(T &&rh);
 	int exists(const int i);
+	int getsize();
+	T& getlast();
+	T merge(const T& separator);
+	void sort();
+	void sort(int (*func) (const T**, const T**));
+	int indexof(T &value);
+	int begin() const {
+		return 0;
+	}
+	int end() const {
+		return max + 1;
+	}
 };
 
 template <class T>
 Array<T>::Array() {
+	static_assert(!std::is_scalar<T>::value, "type must not be scalar");
+
 	max = -1;
-	num_elem = 8;
-	elements = (T **)calloc(num_elem, sizeof(T*));
-	if (!elements)
-		throw std::bad_alloc();
+	num_elem = 0;
+	elements = NULL;
+	check();
+}
+
+template <class T>
+Array<T>::Array(const Array &src) : Base()
+{
+	static_assert(!std::is_scalar<T>::value, "type must not be scalar");
+
+	max = -1;
+	num_elem = 0;
+	elements = NULL;
+	*this = src;
+}
+
+template <class T>
+Array<T>::Array(Array &&src) : Base()
+{
+	static_assert(!std::is_scalar<T>::value, "type must not be scalar");
+
+	max = src.max;
+	src.max = -1;
+	num_elem = src.num_elem;
+	src.num_elem = 0;
+	elements = src.elements;
+	src.elements = NULL;
 }
 
 template <class T>
 Array<T>::~Array() {
-	for (int i = 0; i < num_elem; i++)
+	check();
+	for (int i = 0; i <= max; i++)
 		delete elements[i];
 	free (elements);
 }
 
 template <class T>
 void
+Array<T>::check() const
+{
+#if 0
+	for (int i = 0; i <= max; i++) {
+		for (int j = i; j <= max; j++) {
+			if (i != j) {
+				if (elements[i] != NULL) {
+					abort_assert(elements[i] != elements[j]);
+				}
+			}
+		}
+	}
+#endif
+	Base::check();
+}
+
+template <class T>
+void
 Array<T>::clear(const int i) {
 	cassert(i >= 0);
+	check();
 	if (i > max)
 		return;
 	delete elements[i];
@@ -447,47 +609,139 @@ template <class T>
 void
 Array<T>::insert(const int i) {
 	cassert(i >= 0);
+	check();
 	if (i - 1 > max)
 		return;
-	setsize(i);
+	setsize(max + 1);
 	if (i <= max) {
-		memmove(&elements[i + 1], &elements[i],
-		    sizeof(T*) * (max - i + 1));
+		memmove(&elements[i + 1], &elements[i], sizeof(T*) * (max - i + 1));
 		max++;
+		elements[i] = NULL;
 	}
+	check();
+}
+
+template <class T>
+void
+Array<T>::sort()
+{
+	if (max < 1) {
+		return;
+	}
+	auto helper = [] (const T** a, const T** b) {
+		int ret = 0;
+		if (**a < **b) {
+			ret = -1;
+		} else if (**a > **b) {
+			ret = +1;
+		}
+		return ret;
+	};
+	sort(helper);
+}
+
+template <class T>
+void
+Array<T>::sort(int (*func) (const T**, const T**))
+{
+	::qsort(elements, max + 1, sizeof(T*), (int (*)(const void*, const void*))func);
+	check();
 }
 
 template <class T>
 void
 Array<T>::del(const int i) {
-	cassert(i >= 0);
-	if (i > max)
-		return;
+	abort_assert(i <= max);
+	abort_assert(i >= 0);
+	check();
 	delete elements[i];
 	if (i != max)
 		memmove(&elements[i], &elements[i + 1], sizeof(T*) * (max - i));
 	elements[max] = NULL;
 	max--;
+	check();
 }
 
 template <class T>
 void
 Array<T>::setsize(const int i) {
 	if (i >= num_elem) {
-		int old_num = num_elem;
+		int new_num = num_elem;
 		if (i >= 1024) {
-			num_elem = (i + 1024) & ~1023;
+			new_num = (i + 1024) & ~1023;
 		} else {
-			while (i >= num_elem)
-				num_elem *= 2;
+			new_num = (new_num > 0) ? new_num : 8;
+			while (i >= new_num) {
+				new_num *= 2;
+			}
 		}
-		T **tmp = (T **)realloc(elements, num_elem * sizeof(T*));
+		T **tmp = (T **)realloc(elements, new_num * sizeof(T*));
 		if (!tmp)
 			throw std::bad_alloc();
 		elements = tmp;
-		bzero((char*)&elements[old_num],
-		    sizeof(T*) * (num_elem - old_num));
+		bzero((char*)&elements[num_elem],
+		    sizeof(T*) * (new_num - num_elem));
+		num_elem = new_num;
+		check();
 	}
+}
+
+template <class T>
+bool
+Array<T>::operator==(const Array &lh) const
+{
+	for (int i = 0; i <= max; i++) {
+		if (elements[i] != NULL && lh.elements[i] != NULL) {
+			if (*elements[i] != *lh.elements[i]) {
+				return false;
+			}
+		} else if (elements[i] != NULL || lh.elements[i] != NULL) {
+			return false;
+		}
+	}
+	return true;
+}
+
+template <class T>
+bool
+Array<T>::operator!=(const Array &lh) const
+{
+	for (int i = 0; i <= max; i++) {
+		if (elements[i] != NULL && lh.elements[i] != NULL) {
+			if (*elements[i] == *lh.elements[i]) {
+				return false;
+			}
+		} else if (elements[i] == NULL && lh.elements[i] == NULL) {
+			return false;
+		}
+	}
+	return true;
+}
+
+template <class T>
+const Array<T>&
+Array<T>::operator=(const Array &lh)
+{
+	while (max >= 0) {
+		delete elements[max];
+		elements[max] = NULL;
+		max--;
+	}
+	setsize(lh.max);
+	for (int i = 0; i <= lh.max; i++) {
+		(*this)[i] = lh[i];
+	}
+	return *this;
+}
+
+template <class T>
+const Array<T>&
+Array<T>::operator=(Array &&lh)
+{
+	std::swap(num_elem, lh.num_elem);
+	std::swap(max, lh.max);
+	std::swap(elements, lh.elements);
+	return *this;
 }
 
 template <class T>
@@ -517,7 +771,11 @@ Array<T>::operator[](int i) const {
 
 	cassert(i >= 0);
 	cassert(i <= max);
-	return *elements[i];
+	check();
+	Array<T> *me = const_cast<Array<T>*>(this);
+	if (!elements[i])
+		me->elements[i] = new T();
+	return *me->elements[i];
 };
 
 template <class T>
@@ -525,13 +783,29 @@ T&
 Array<T>::operator[](int i) {
 	cassert(i >= 0);
 	if (i > max) {
-		max = i;
 		setsize(i);
+		max = i;
 	}
 	if (!elements[i])
 		elements[i] = new T();
 	return *elements[i];
 };
+
+template <class T>
+T&
+Array<T>::operator<<(const T& rh) {
+	(*this)[max + 1] = rh;
+	return *elements[max];
+}
+
+template <class T>
+T&
+Array<T>::operator<<(T&& rh) {
+	setsize(max + 1);
+	max++;
+	elements[max] = new T(std::move(rh));
+	return *elements[max];
+}
 
 template <class T>
 int
@@ -543,105 +817,45 @@ Array<T>::exists(const int i) {
 }
 
 template <class T>
-class List : public Base {
-private:
-	struct elements {
-		T *obj;
-		struct elements *next;
-	};
-	struct elements *e0, *el;
-	int numobj;
-	
-public:
-	List();
-	List(List &src);
-	~List();
-	int empty() {
-		return !numobj;
-	}
-	void clear() {
-		for (; !empty(); --(*this));
-	}
-	T& operator[](int i) ;
-	void operator+=(const T& obj);
-	void operator-=(int i);
-	void operator--();
-
-};
-
-template <class T>
-List<T>::List() {
-
-	e0 = el = 0;
-	numobj = 0;
-};
-
-template <class T>
-List<T>::~List() {
-
-	clear();
-	cassert(numobj == 0);
-};
+int
+Array<T>::getsize() {
+	return max;
+}
 
 template <class T>
 T&
-List<T>::operator[](int i) {
-
-	cassert (i == 0);
-	cassert (e0);
-	return *e0->obj;
-};
-
-template <class T>
-void
-List<T>::operator+=(const T& obj) {
-	struct elements *ne;
-
-	ne = new struct elements;
-	ne->obj = new T(obj);
-	ne->next = 0;
-	if (el == 0)
-		e0 = ne;
-	else
-		el->next=ne;
-	el = ne;
-	numobj++;
-};
+Array<T>::getlast() {
+	if (!elements[max])
+		elements[max] = new T();
+	return *elements[max];
+}
 
 template <class T>
-void
-List<T>::operator--() {
-	struct elements *en;
+T
+Array<T>::merge(const T& separator) {
+	T ret;
+	bool first = true;
 
-	if (e0) {
-		en = e0->next;
-		delete e0->obj;
-		delete e0;
-		e0=en;
-		if (e0 == 0)
-			el = 0;
-		numobj--;
-		cassert(numobj >= 0);
+	for (int i = 0; i <= max; i++) {
+		if (first) {
+			first = false;
+		} else {
+			ret += separator;
+		}
+		ret += (*this)[i];
 	}
-};
+	return ret;
+}
 
 template <class T>
-void
-List<T>::operator-=(int i) {
-	struct elements *en;
-
-	cassert (i == 0);
-	if (e0) {
-		en = e0->next;
-		delete e0->obj;
-		delete e0;
-		e0=en;
-		if (e0 == 0)
-			el = 0;
-		numobj--;
-		cassert(numobj >= 0);
+int
+Array<T>::indexof(T &value) {
+	for (int i = 0; i <= max; i++) {
+		if (elements[i] != NULL && *elements[i] == value)
+			return i;
 	}
-};
+	return -1;
+}
 
 template <class T>
 class a_ptr : public Base {
@@ -653,32 +867,41 @@ private:
 	T* ptr;
 public:
 	a_ptr(T* nptr) {
-		cassert(nptr != NULL);
+		abort_assert(nptr != NULL);
 		ptr = nptr;
 	}
 	a_ptr() {
 		ptr = NULL;
 	}
-	int isinit() const {
+	bool isinit() const {
 		return (ptr != NULL);
 	}
 	const T* operator->() const {
-		cassert(isinit());
+		abort_assert(isinit());
 		return ptr;
 	}
 	T* operator->() {
-		cassert(isinit());
+		abort_assert(isinit());
 		return ptr;
 	}
 	~a_ptr() {
 		delete ptr;
+		ptr = NULL;
 	}
 	T* get() {
-		cassert(isinit());
+		abort_assert(isinit());
 		return ptr;
 	}
+	const T* get() const {
+		abort_assert(isinit());
+		return ptr;
+	}
+	void del() {
+		delete ptr;
+		ptr = NULL;
+	}
 	T* operator=(T* nptr) {
-		cassert(nptr != NULL);
+		abort_assert(nptr != NULL);
 		delete ptr;
 		ptr = nptr;
 		return ptr;
@@ -687,56 +910,94 @@ public:
 
 template <class T>
 class a_refptr : public Base {
-protected:
-	T& operator[](int i);
 private:
 	T* ptr;
 public:
-	const a_refptr& operator=(const a_refptr &src) {
-		if (ptr != NULL)
-			ptr->delref();
+	a_refptr(const a_refptr &src) : Base () {
 		ptr = src.ptr;
-		ptr->addref();
-		return *this;
+		if (ptr != NULL) {
+			ptr->addref();
+		}
 	}
-	a_refptr(const a_refptr &src) {
-		if (ptr != NULL)
-			ptr->delref();
-		ptr = src.ptr;
-		ptr->addref();
+	a_refptr(a_refptr &&src) : Base () {
+		std::swap(ptr, src.ptr);
 	}
 	a_refptr(T* nptr) {
-		cassert(nptr != NULL);
+		abort_assert(nptr != NULL);
 		ptr = nptr;
 		ptr->addref();
 	}
 	a_refptr() {
 		ptr = NULL;
 	}
+	~a_refptr() {
+		if (ptr != NULL) {
+			ptr->delref();
+			ptr = NULL;
+		}
+	}
+	const a_refptr& operator=(const a_refptr &src) {
+		if (ptr != NULL) {
+			ptr->delref();
+		}
+		ptr = src.ptr;
+		if (ptr != NULL) {
+			ptr->addref();
+		}
+		return *this;
+	}
+	const a_refptr& operator=(a_refptr &&src) {
+		std::swap(ptr, src.ptr);
+		return *this;
+	}
 	int isinit() const {
 		return (ptr != NULL);
 	}
 	const T* operator->() const {
-		cassert(isinit());
+		if (ptr == NULL) {
+			T** tmp = const_cast<T**>(&ptr);
+			*tmp = new T;
+			ptr->addref();
+		}
 		return ptr;
 	}
 	T* operator->() {
-		cassert(isinit());
+		if (ptr == NULL) {
+			ptr = new T;
+			ptr->addref();
+		}
 		return ptr;
 	}
-	~a_refptr() {
-		ptr->delref();
-	}
 	T* get() {
-		cassert(isinit());
+		if (ptr == NULL) {
+			ptr = new T;
+			ptr->addref();
+		}
+		return ptr;
+	}
+	const T* get() const {
+		if (ptr == NULL) {
+			T** tmp = const_cast<T**>(&ptr);
+			*tmp = new T;
+			ptr->addref();
+		}
 		return ptr;
 	}
 	T* operator=(T* nptr) {
-		cassert(nptr != NULL);
-		if (ptr != NULL)
-			ptr->delref();
+		abort_assert(nptr != NULL);
+		T* tmp = ptr;
 		ptr = nptr;
+		ptr->addref();
+		if (tmp != NULL) {
+			tmp->delref();
+		}
 		return ptr;
+	}
+	void del() {
+		if (ptr != NULL) {
+			ptr->delref();
+		}
+		ptr = NULL;
 	}
 };
 
@@ -744,7 +1005,37 @@ uint64_t gettimesec(void);
 String sgethostname();
 uint64_t genid();
 String tohex(char *data, int size);
-//String genmd5id();
 uint64_t getdate();
+
+class MD5_Hash {
+public:
+	unsigned char buf[MD5_DIGEST_LENGTH];
+};
+
+MD5_Hash getMD5(void* data, size_t length);
+MD5_Hash getMD5(const String& data);
+String get_strhash(MD5_Hash hash);
+String get_base64hash(MD5_Hash hash);
+
+class SHA1_Hash {
+public:
+	unsigned char buf[SHA_DIGEST_LENGTH];
+};
+
+SHA1_Hash getSHA1(void* data, size_t length);
+SHA1_Hash getSHA1(const String& data);
+String get_strhash(SHA1_Hash hash);
+String get_base64hash(SHA1_Hash hash);
+
+extern Mutex fetch_mtx;
+String base64_encode(void* data, size_t length); // MIME (RFC 2045), RFC 3548 and RFC 4648 compliant
+
+uint16_t fasthash(const String& key);
+
+uint8_t nibbletobin(char rh);
+
+extern template class Array<String>;
+
+uint32_t crc_hash(const void *key, uint32_t len, uint32_t hash);
 
 #endif /* !_TOOL */

@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2002 Bernd Walter Computer Technology
+ * Copyright (c) 2002,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -8,30 +9,33 @@
  * $Rev$
  */
 
-#include <bwct/base.h>
-#include <bwct/compress.h>
+#include "bwct.h"
 
-Cmpfile::Cmpfile() {
+Cmpfile::Cmpfile()
+{
 	comp = 0;
 	iscomp = 0;
 }
 
 int64_t
-Cmpfile::lseek(int64_t offset, int whence) {
+Cmpfile::lseek(int64_t offset, int whence)
+{
 	throw Error("unavailable");
 	/* NOT REACHED */
 	return 0;
 }
 
 int
-Cmpfile::ioctl(unsigned long request, void *argp) {
+Cmpfile::ioctl(unsigned long request, void *argp)
+{
 	throw Error("unavailable");
 	/* NOT REACHED */
 	return 0;
 }
 
 ssize_t
-Cmpfile::readv(SArray<struct iovec>& data) {
+Cmpfile::readv(SArray<struct iovec>& data)
+{
 	if (comp && iscomp)
 		throw Error("compressread compressed file");
 	if (!comp && !iscomp)
@@ -47,7 +51,8 @@ Cmpfile::readv(SArray<struct iovec>& data) {
 }
 
 ssize_t
-Cmpfile::writev(SArray<struct iovec>& data) {
+Cmpfile::writev(SArray<struct iovec>& data)
+{
 	ssize_t nwritten = 0;
 	for (int i = 0; i <= data.max; i++) {
 		ssize_t res = writen(data[i].iov_base, data[i].iov_len);
@@ -59,20 +64,25 @@ Cmpfile::writev(SArray<struct iovec>& data) {
 }
 
 #ifdef HAVE_LIBZ
-Zfile::Zfile() {
+Zfile::Zfile()
+{
 }
 
-Zfile::~Zfile() {
-	if (opened())
-		if (comp)
+Zfile::~Zfile()
+{
+	if (opened()) {
+		if (comp) {
 			deflateEnd(&zs);
-		else
+		} else {
 			inflateEnd(&zs);
+		}
+	}
 }
 
 void
-Zfile::close() {
-	if (opened())
+Zfile::close()
+{
+	if (opened()) {
 		if (comp) {
 			int err;
 			err = deflate(&zs, Z_FINISH);
@@ -92,13 +102,16 @@ Zfile::close() {
 				ptr += nwritten;
 			}
 			deflateEnd(&zs);
-		} else
+		} else {
 			inflateEnd(&zs);
+		}
+	}
 	File::close();
 }
 
 void
-Zfile::cmpinit(int comp, int iscomp) {
+Zfile::cmpinit(int comp, int iscomp)
+{
 	inbuf = new Matrix<char>(65536);
 	outbuf = new Matrix<char>(65536);
 	outptr = outbuf->get();
@@ -125,7 +138,8 @@ Zfile::cmpinit(int comp, int iscomp) {
 }
 
 ssize_t
-Zfile::microread(void *vptr, size_t n) {
+Zfile::microread(void *vptr, size_t n)
+{
 	if (comp && iscomp)
 		throw Error("compressread compressed file");
 	if (!comp && !iscomp)
@@ -188,7 +202,8 @@ Zfile::microread(void *vptr, size_t n) {
 }
 
 ssize_t
-Zfile::microwrite(const void *vptr, size_t n) {
+Zfile::microwrite(const void *vptr, size_t n)
+{
 	if (comp && !iscomp)
 		throw Error("compresswrite uncompressed file");
 	if (!comp && iscomp)
@@ -229,35 +244,41 @@ Zfile::microwrite(const void *vptr, size_t n) {
 }
 
 void
-Zfile::waitread() {
-	if ((char*)zs.next_out != outbuf->get())
+Zfile::mywaitread()
+{
+	if ((char*)zs.next_out != outbuf->get()) {
 		return;
-	File::waitread();
+	}
+	File::mywaitread();
 }
 
 void
-Zfile::waitwrite() {
-	File::waitwrite();
+Zfile::mywaitwrite()
+{
+	File::mywaitwrite();
 }
-
 #endif
 
 #ifdef HAVE_LIBBZ2
-
-BZ2file::BZ2file() {
+BZ2file::BZ2file()
+{
 }
 
-BZ2file::~BZ2file() {
-	if (opened())
-		if (comp)
+BZ2file::~BZ2file()
+{
+	if (opened()) {
+		if (comp) {
 			BZ2_bzCompressEnd(&zs);
-		else
+		} else {
 			BZ2_bzDecompressEnd(&zs);
+		}
+	}
 }
 
 void
-BZ2file::close() {
-	if (opened())
+BZ2file::close()
+{
+	if (opened()) {
 		if (comp) {
 			int err;
 			err = BZ2_bzCompress(&zs, BZ_FINISH);
@@ -277,13 +298,16 @@ BZ2file::close() {
 				ptr += nwritten;
 			}
 			BZ2_bzCompressEnd(&zs);
-		} else
+		} else {
 			BZ2_bzDecompressEnd(&zs);
+		}
+	}
 	File::close();
 }
 
 void
-BZ2file::cmpinit(int comp, int iscomp) {
+BZ2file::cmpinit(int comp, int iscomp)
+{
 	inbuf = new Matrix<char>(65536);
 	outbuf = new Matrix<char>(65536);
 	outptr = outbuf->get();
@@ -310,7 +334,8 @@ BZ2file::cmpinit(int comp, int iscomp) {
 }
 
 ssize_t
-BZ2file::microread(void *vptr, size_t n) {
+BZ2file::microread(void *vptr, size_t n)
+{
 	if (comp && iscomp)
 		throw Error("compressread compressed file");
 	if (!comp && !iscomp)
@@ -374,7 +399,8 @@ BZ2file::microread(void *vptr, size_t n) {
 }
 
 ssize_t
-BZ2file::microwrite(const void *vptr, size_t n) {
+BZ2file::microwrite(const void *vptr, size_t n)
+{
 	if (comp && !iscomp)
 		throw Error("compresswrite uncompressed file");
 	if (!comp && iscomp)
@@ -415,16 +441,16 @@ BZ2file::microwrite(const void *vptr, size_t n) {
 }
 
 void
-BZ2file::waitread() {
+BZ2file::mywaitread()
+{
 	if ((char*)zs.next_out != outbuf->get())
 		return;
-	File::waitread();
+	File::mywaitread();
 }
 
 void
-BZ2file::waitwrite() {
-	File::waitwrite();
+BZ2file::mywaitwrite()
+{
+	File::mywaitwrite();
 }
-
 #endif
-

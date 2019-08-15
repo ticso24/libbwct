@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2001,02,03 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
  * $URL$
@@ -8,10 +9,10 @@
  * $Rev$
  */
 
-#include <bwct/base.h>
-#include <bwct/thread.h>
+#include <bwct/bwct.h>
 
-Thread::Thread() {
+Thread::Thread()
+{
 	id = 0;
 }
 
@@ -21,18 +22,30 @@ Thread::Thread(const Thread& cpy) :
 	id = 0;
 }
 
-Thread::~Thread() {
+Thread::~Thread()
+{
 }
 
-#ifdef HAVE_PTHREAD
 void
-Thread::detach() {
+Thread::detach()
+{
 	pthread_detach(id);
 }
-#endif
+
+void
+Thread::terminate()
+{
+	if (id != 0) {
+		if (pthread_cancel(id) == 0) {
+			pthread_join(id, NULL);
+		}
+		id = 0;
+	}
+}
 
 void *
-Thread::starthelp(void *data) {
+Thread::starthelp(void *data)
+{
 	try {
 		((Thread*)data)->threadstart();
 	} catch (std::exception& e) {
@@ -42,199 +55,258 @@ Thread::starthelp(void *data) {
 		syslog(LOG_DEBUG, "exception");
 	}
 	((Thread*)data)->threadend();
+	delete ((Thread*)data);
 //	pthread_exit(NULL);
 	return NULL;
 }
 
 void
-Thread::start() {
+Thread::start()
+{
 
 	cassert(id == 0);
-#ifdef HAVE_PTHREAD
-	if (pthread_create(&id, NULL, starthelp, this) != 0)
+	pthread_attr_t thread_attr;
+	int s;
+	size_t tmp_size=0;
+	s = pthread_attr_init(&thread_attr);
+	cassert(s == 0);
+	//s = pthread_attr_getstacksize(&thread_attr , &tmp_size);
+	//cassert(s == 0);
+	tmp_size = 8ULL * 1024 * 1024; // FreeBSD default on amd64 has 2MB
+	s = pthread_attr_setstacksize(&thread_attr , tmp_size);
+	cassert(s == 0);
+	tmp_size = 1ULL * 1024 * 1024;
+	s = pthread_attr_setguardsize(&thread_attr , tmp_size);
+	cassert(s == 0);
+	if (pthread_create(&id, &thread_attr, starthelp, this) != 0) {
+		pthread_attr_destroy(&thread_attr);
 		throw Error("creating thread failed");
-	detach(); // TODO make it an optional attribute
-#else
-	while ((id = fork()) == -1) {
-		if (id == -1 && errno != EAGAIN && errno != EINTR)
-			throw Error("fork failed");
-		if (id == 0) {
-			starthelp(this);
-			exit(0);
-		}
 	}
-#endif
+	pthread_attr_destroy(&thread_attr);
+	detach(); // TODO make it an optional attribute
 }
 
-#ifdef HAVE_PTHREAD
 void
-Thread::join() {
+Thread::atforkwipe()
+{
+	id = 0;
+}
+
+void
+Thread::join()
+{
 
 	cassert(id == 0);
 	if (pthread_join(id, &retvalue) != 0)
 		throw Error("joining thread failed");
 }
-#endif
 
-#ifdef HAVE_PTHREAD
-
-Mutex::Mutex() {
-	lck = 0;
-	dead = 0;
+Mutex::Mutex()
+{
+	locked = false;
+	dead = false;
 	pthread_mutex_init(&mutex, NULL);
 }
 
-Mutex::~Mutex() {
-	cassert (lck == 0);
+Mutex::~Mutex()
+{
+	// TODO we can't thow an exception from a destructor
 	pthread_mutex_destroy(&mutex);
 }
 
 int
-Mutex::lock() {
-	int ret;
-
-	cassert (dead == 0);
-	ret = pthread_mutex_lock(&mutex);
-	if (ret == 0) {
-		cassert (lck == 0);
-		lck = 1;
-	}
-	return ret;
+Mutex::lock()
+{
+	cassert (!dead);
+	while (pthread_mutex_lock(&mutex) != 0);
+	cassert (!locked);
+	locked = true;
+	return 0;
 }
 
 int
-Mutex::trylock() {
+Mutex::trylock()
+{
 	int ret;
 
-	cassert (dead == 0);
+	cassert (!dead);
 	ret = pthread_mutex_trylock(&mutex);
 	if (ret == 0) {
-		cassert (lck == 0);
-		lck = 1;
+		cassert (!locked);
+		locked = true;
 	}
 	return ret;
 }
 
 int
-Mutex::unlock() {
-	cassert (dead == 0);
-	cassert (lck == 1);
-	lck = 0;
+Mutex::unlock()
+{
+	cassert (!dead);
+	cassert (locked);
+	locked = false;
 	return pthread_mutex_unlock(&mutex);
 }
 
-int
-Mutex::locked() {
-	cassert (dead == 0);
-	return lck;
+bool
+Mutex::islocked()
+{
+	cassert (!dead);
+	return locked;
 }
 
 void
-Mutex::setdead() {
-	dead = 1;
+Mutex::setdead()
+{
+	dead = true;
 }
 
-Mutex::Guard::Guard(Mutex& nmtx, bool lck) {
+Mutex::Guard::Guard(Mutex& nmtx, bool lck)
+{
 	mtx = &nmtx;
-	locked = 0;
+	locked = false;
 	if (lck)
 		lock();
 }
 
-Mutex::Guard::~Guard() {
-	if (locked == 1)
+bool
+Mutex::Guard::islocked()
+{
+	return locked;
+}
+
+Mutex::Guard::~Guard()
+{
+	if (locked)
 		mtx->unlock();
 }
 
 void
-Mutex::Guard::lock() {
-	cassert (locked == 0);
+Mutex::Guard::lock()
+{
+	cassert (!locked);
 	mtx->lock();
-	locked = 1;
+	locked = true;
 }
 
 void
-Mutex::Guard::unlock() {
+Mutex::Guard::unlock()
+{
 	cassert (locked == 1);
 	mtx->unlock();
-	locked = 0;
+	locked = false;
 }
 
-CV::CV() {
+CV::CV()
+{
 	pthread_cond_init(&cv, NULL);
 }
 
-CV::~CV() {
+CV::~CV()
+{
 	pthread_cond_destroy(&cv);
 }
 
 int
-CV::wait(Mutex &mtx) {
-	return pthread_cond_wait(&cv, &mtx.mutex);
+CV::wait(Mutex &mtx, time_t timeout)
+{
+	int ret;
+	mtx.locked = false;
+	struct timespec ts;
+	ts.tv_sec = time(NULL) + timeout;
+	ts.tv_nsec = 0;
+	ret = pthread_cond_timedwait(&cv, &mtx.mutex, &ts);
+	mtx.locked = true;
+	return ret;
 }
 
 int
-CV::signal() {
+CV::wait(Mutex &mtx)
+{
+	int ret;
+	mtx.locked = false;
+	ret = pthread_cond_wait(&cv, &mtx.mutex);
+	mtx.locked = true;
+	return ret;
+}
+
+int
+CV::signal()
+{
 	return pthread_cond_signal(&cv);
 }
 
 int
-CV::broadcast() {
+CV::broadcast()
+{
 	return pthread_cond_broadcast(&cv);
 }
 
-#ifdef FreeBSD
-RW_Lock::RW_Lock() {
+RW_Lock::RW_Lock()
+{
 	pthread_rwlock_init(&rwlock, NULL);
 }
 
-RW_Lock::~RW_Lock() {
+RW_Lock::~RW_Lock()
+{
 	pthread_rwlock_destroy(&rwlock);
 }
 
 void
-RW_Lock::rdlock() {
+RW_Lock::rdlock()
+{
 	pthread_rwlock_rdlock(&rwlock);
 }
 
 void
-RW_Lock::wrlock() {
+RW_Lock::wrlock()
+{
 	pthread_rwlock_wrlock(&rwlock);
 }
 
 void
-RW_Lock::unlock() {
+RW_Lock::unlock()
+{
 	pthread_rwlock_unlock(&rwlock);
 }
 
 int
-RW_Lock::tryrdlock() {
+RW_Lock::tryrdlock()
+{
 	return pthread_rwlock_tryrdlock(&rwlock);
 }
 
 int
-RW_Lock::trywrlock() {
+RW_Lock::trywrlock()
+{
 	return pthread_rwlock_trywrlock(&rwlock);
 }
 
-#endif /* FreeBSD */
-
-#endif
-
-void *
-cyclic::threadstart() {
-	for (;;) {
-		sleep(period);
-		job();
-	}
-}
-
-cyclic::cyclic(uint64_t nperiod) {
+cyclic::cyclic(uint64_t nperiod)
+{
 	period = nperiod;
 }
 
-cyclic::~cyclic() {
+cyclic::~cyclic()
+{
 	// TODO terminate thread
-	cassert(0);
+	// TODO we can't thow an exception from a destructor
+	//cassert(0);
+}
+
+void *
+cyclic::threadstart()
+{
+	for (;;) {
+		job();
+		if (period != 0) {
+			usleep(period);
+		}
+	}
+	return NULL;
+}
+
+void
+cyclic::threadend()
+{
 }
 

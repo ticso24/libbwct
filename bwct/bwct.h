@@ -20,6 +20,8 @@
 //#include <bwct/ssl.h>
 #include <bwct/compress.h>
 //#include <bwct/database.h>
+#include <bwct/json.h>
+#include <bwct/aarray.h>
 
 #undef PACKAGE_BUGREPORT
 #undef PACKAGE_VERSION
