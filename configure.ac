@@ -27,7 +27,7 @@ CB_CFLAGS="-Wall -DDEBUG"
 # _XOPEN_SOURCE hurts on Solaris...
 # CB_CFLAGS="$CB_CFLAGS -D_XOPEN_SOURCE=1"	# POLLRDNORM/POLLWRNORM under Linux
 AC_DEFINE(_XOPEN_SOURCE_EXTENDED, 1, [enable mostly useable sockets on HPUX])
-AC_DEFINE(_BSD_SOURCE, 1, [reenable gethostname and others on Linux])
+AC_DEFINE(_DEFAULT_SOURCE, 1, [reenable gethostname and others on Linux])
 AC_DEFINE(_LARGEFILE64_SOURCE, 1, [access to files greater than 2Gb in Solaris])
 AC_DEFINE(_USE_LARGEFILE64, 1, [access to files greater than 2Gb in Linux])
 AC_DEFINE(_LARGE_FILE_API, 1, [access to files greater than 2Gb in AIX])
