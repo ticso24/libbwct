@@ -229,11 +229,19 @@ File::flush () {
 
 void
 File::open(const String& path, int flags, int mode) {
+#if HAVE_OPEN64
+	if (flags & O_CREAT) {
+		fd = ::open64(path.c_str(), flags | O_LARGEFILE, mode);
+	} else {
+		fd = ::open64(path.c_str(), flags | O_LARGEFILE);
+	}
+#else
 	if (flags & O_CREAT) {
 		fd = ::open(path.c_str(), flags, mode);
 	} else {
 		fd = ::open(path.c_str(), flags);
 	}
+#endif
 	if (fd >= 0)
 		filename = path;
 	else {
@@ -492,7 +500,11 @@ Dir::open(const String& ndir) {
 int
 Dir::read() {
 	cassert(dir != NULL);
+#if HAVE_READDIR64
+        entry = readdir64(dir);
+#else
 	entry = readdir(dir);
+#endif
 	if (entry != NULL)
 		name = entry->d_name;
 	return (entry != NULL);

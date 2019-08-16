@@ -126,7 +126,11 @@ public:
 class Dir : public Base {
 private:
 	DIR *dir;
+#if HAVE_READDIR64
+	struct dirent64 *entry;
+#else
 	struct dirent *entry;
+#endif
 public:
 	String dirname;
 	String name;
