@@ -64,6 +64,7 @@ public:
 	virtual void close();
 };
 
+#ifdef HAVE_LIBBZ2
 class BZ2file : public Cmpfile {
 protected:
 	a_ptr<char> inbuf;
@@ -80,5 +81,6 @@ public:
 	~BZ2file();
 	virtual void close();
 };
+#endif
 
 #endif /* !_COMPRESS */
