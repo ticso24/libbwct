@@ -26,6 +26,7 @@ include_HEADERS =	bwct/base.h \
 			bwct/aarray.h \
 			bwct/sarray.h \
 			bwct/array.h \
+			bwct/ssl.h \
 			bwct/compress.h
 libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/tool.cc \
