@@ -550,66 +550,6 @@ getload()
 	return  avenrun[0];
 }
 
-void
-call_external(Array<String>& args, bool dontwait)
-{
-	struct sigaction sa;
-	struct sigaction osa;
-	sa.sa_handler = SIG_DFL;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = 0;
-	if (sigaction(SIGCHLD, &sa, &osa) != 0) {
-		throw Error(S + "sigaction failed " + get_strerror(errno));
-	}
-	try {
-
-		String path = args[0];
-
-		String x;
-
-		char* argv[args.max + 2];
-		for (int64_t i = 0; i <= args.max; i++) {
-			argv[i] = (char*) args[i].c_str();
-			x += args[i] + " ";
-			argv[i + 1] = NULL;
-		}
-
-		{
-			String logstr;
-			logstr = S + "exec: " + x;
-			syslog(LOG_DEBUG, "%s", logstr.c_str());
-		}
-
-		pid_t child = fork();
-		if (child == 0) { // are we the child?
-			closefrom(3);
-			execv(path.c_str(), (char**) &argv);
-
-			// if we are still here something with exec went wrong
-			_exit(-1);
-		} else if (child != -1) { // are we the parent?
-			// wait for child to complete
-			int status;
-			pid_t res;
-			do {
-				res = wait4(child, &status, dontwait ? WNOHANG : 0, NULL);
-			} while (res == -1 && (errno == EAGAIN || errno == EINTR));
-			if (res == -1) {
-				throw Error(S + "waiting for child failed " + get_strerror(errno));
-			}
-			if (status != 0) {
-				throw Error(S + "child returned status " + status);
-			}
-		} else {
-			throw Error(S + "fork failed " + get_strerror(errno));
-		}
-	} catch (...) {
-		sigaction(SIGCHLD, &osa, NULL);
-		throw;
-	}
-	sigaction(SIGCHLD, &osa, NULL);
-}
-
 String
 get_strerror(int num)
 {

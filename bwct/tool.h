@@ -437,8 +437,6 @@ uint32_t crc_hash(const void *key, uint32_t len, uint32_t hash);
 
 double getload();
 
-void call_external(Array<String>& args, bool dontwait = false);
-
 String get_strerror(int num);
 
 String pw_crypt(const String& pw);
