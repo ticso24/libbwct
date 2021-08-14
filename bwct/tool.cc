@@ -554,7 +554,7 @@ String
 get_strerror(int num)
 {
 	String ret;
-	char ebuf[NL_TEXTMAX];
+	char ebuf[2048]; // NL_TEXTMAX, but Linux idiots have it defined as INT_MAX
 
 	if (strerror_r(num, ebuf, sizeof(ebuf)) != 0) {
 		ret = "invalid errno";
