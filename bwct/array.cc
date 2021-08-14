@@ -9,9 +9,6 @@
  * $Rev: 44487 $
  */
 
-#include <sys/types.h>
-#include <unistd.h>
-
 #include "bwct.h"
 
 template class Array<String>;
