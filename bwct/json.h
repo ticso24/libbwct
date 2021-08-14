@@ -12,7 +12,6 @@
 #ifndef _JSON
 #define _JSON
 
-#include "db.h"
 #include "tool.h"
 #include "aarray.h"
 #include "array.h"
