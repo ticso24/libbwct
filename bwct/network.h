@@ -81,8 +81,4 @@ public:
 	};
 };
 
-uint32_t sctp_getpeerrtt(int sc, sctp_assoc_t id);
-uint32_t sctp_address_to_rtt(int sc, struct sockaddr *sa, socklen_t salen);
-sctp_assoc_t sctp_address_to_associd(int sc, struct sockaddr *sa, socklen_t salen);
-
 #endif /* !_NETWORK */
