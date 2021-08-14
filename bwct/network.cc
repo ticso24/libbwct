@@ -397,30 +397,6 @@ ok:
 	return ret;
 }
 
-ssize_t
-Network::Net::sendfile(File &infile)
-{
-	off_t offset = 0;
-	off_t sbytes;
-	int res;
-	int safeerrno;
-
-	nonblocking(0);
-	do {
-		res = ::sendfile(infile.fd, fd, offset, 0, NULL, &sbytes, 0);
-		offset += sbytes;
-		if (res < 0 && errno == EAGAIN) {
-			waitwrite();
-		}
-	} while (res < 0 && (errno == EAGAIN || errno == EINTR));
-	safeerrno = errno;
-	nonblocking(1);
-	if (res < 0) {
-		throw Error(String("sendfile: ") + get_strerror(safeerrno));
-	}
-	return (ssize_t)offset;
-}
-
 void
 Network::Net::mywaitread()
 {

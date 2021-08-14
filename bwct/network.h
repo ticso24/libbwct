@@ -57,7 +57,6 @@ public:
 		virtual String getpeeraddr();
 		virtual String tinfo() const;
 		void nodelay(int flag);
-		virtual ssize_t sendfile(File &infile);
 		void nonblocking(bool flag);
 	};
 
