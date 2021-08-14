@@ -10,7 +10,6 @@
  */
 
 #include <sys/types.h>
-#include <machine/atomic.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -97,7 +96,7 @@ void
 Base::addref()
 {
 	check();
-	atomic_add_int((volatile u_int*)&refcount, 1);
+	refcount++;
 	//syslog(LOG_DEBUG, "addref %s", tinfo().c_str());
 }
 
@@ -105,10 +104,8 @@ void
 Base::delref()
 {
 	check();
-	int lastref;
-	lastref = (int)atomic_fetchadd_int((volatile u_int*)&refcount, (u_int)-1);
 	//syslog(LOG_DEBUG, "delref %s", tinfo().c_str());
-	if (lastref == 1) {
+	if (--refcount == 0) {
 		//syslog(LOG_DEBUG, "deleting %s by reference", tinfo().c_str());
 		delete this;
 	}
