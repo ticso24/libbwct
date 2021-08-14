@@ -95,7 +95,7 @@ Thread::atforkwipe()
 void
 Thread::setname(const String& name)
 {
-	pthread_set_name_np(id, name.c_str());
+	pthread_setname_np(id, name.c_str());
 }
 
 void
@@ -110,7 +110,7 @@ Thread::join()
 void
 setthreadname(const String& name)
 {
-	pthread_set_name_np(pthread_self(), name.c_str());
+	pthread_setname_np(pthread_self(), name.c_str());
 }
 
 Mutex::Mutex()

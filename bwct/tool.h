@@ -12,8 +12,6 @@
 #ifndef _TOOL
 #define _TOOL
 
-#include <pthread_np.h>
-
 class Base;
 class String;
 class Mutex;
