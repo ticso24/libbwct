@@ -109,4 +109,9 @@ typedef uint32_t socklen_t
 # define INFTIM (-1)
 #endif
 
+// workarround for systems with broken alsways fast clocks
+#ifndef CLOCK_REALTIME_FAST
+#define CLOCK_REALTIME_FAST CLOCK_REALTIME
+#endif
+
 #endif /* !_BASE */
