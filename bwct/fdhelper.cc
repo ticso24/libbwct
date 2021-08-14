@@ -452,7 +452,7 @@ Stat::fstat(int fd) {
 	int ret;
 #if HAVE_OPEN64
 	struct stat64 st;
-	ret = ::fstat64(path.c_str(), &st);
+	ret = ::fstat64(fd, &st);
 #else
 	struct stat st;
 	ret = ::fstat(fd, &st);
