@@ -236,7 +236,7 @@ CV::wait(Mutex &mtx, time_t timeout)
 	int ret;
 	mtx.locked = false;
 	struct timespec ts;
-	clock_gettime(CLOCK_REALTIME_FAST, &ts);
+	clock_gettime(CLOCK_MONOTONIC_FAST, &ts);
 	ts.tv_sec += timeout;
 	ret = pthread_cond_timedwait(&cv, &mtx.mutex, &ts);
 	mtx.locked = true;
