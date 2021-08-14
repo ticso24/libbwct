@@ -3,37 +3,45 @@
  * Copyright (c) 2008,11,12 FIZON GmbH
  * All rights reserved.
  *
- * crc_hash by Bob Jenkins, (c) 2006, Public Domain
- *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/json.cc $
+ * $Date: 2021-07-22 12:34:19 +0200 (Thu, 22 Jul 2021) $
+ * $Author: ticso $
+ * $Rev: 44553 $
  */
 
 #include "bwct.h"
 
 JSON::JSON()
 {
+	str = NULL;
+	array = NULL;
+	aarray = NULL;
 	type = Type::undefined;
 }
 
 JSON::JSON(const JSON& rh)
 {
+	str = NULL;
+	array = NULL;
+	aarray = NULL;
+
 	type = rh.type;
 	switch(type) {
 	case Type::string:
 	case Type::number:
-		str.reset(new String(*rh.str.get()));
+		str = new String;
+		*str = *rh.str;
 		break;
 	case Type::boolean:
 		bool_state = rh.bool_state;
 		break;
 	case Type::array:
-		array.reset(new Array<JSON>(*rh.array.get()));
+		array = new Array<JSON>;
+		*array = *rh.array;
 		break;
 	case Type::object:
-		aarray.reset(new AArray<JSON>(*rh.aarray.get()));
+		aarray = new AArray<JSON>;
+		*aarray = *rh.aarray;
 		break;
 	case Type::null:
 	case Type::undefined:
@@ -43,20 +51,27 @@ JSON::JSON(const JSON& rh)
 
 JSON::JSON(JSON&& rh)
 {
+	str = NULL;
+	array = NULL;
+	aarray = NULL;
+
 	type = rh.type;
 	switch(type) {
 	case Type::string:
 	case Type::number:
-		std::swap(str, rh.str);
+		str = rh.str;
+		rh.str = NULL;
 		break;
 	case Type::boolean:
 		bool_state = rh.bool_state;
 		break;
 	case Type::array:
-		std::swap(array, rh.array);
+		array = rh.array;
+		rh.array = NULL;
 		break;
 	case Type::object:
-		std::swap(aarray, rh.aarray);
+		aarray = rh.aarray;
+		rh.aarray = NULL;
 		break;
 	case Type::null:
 	case Type::undefined:
@@ -66,14 +81,14 @@ JSON::JSON(JSON&& rh)
 
 JSON::~JSON()
 {
+	clear();
 }
 
 void
 JSON::parse(const String& json)
 {
-	String njson(json);
 	int64_t parserpos = 0;
-	iparse(njson, parserpos);
+	iparse(json, parserpos);
 	cassert(parserpos == (int64_t)json.length());
 }
 
@@ -149,7 +164,7 @@ JSON::parsestring(const String& json, int64_t& parserpos)
 						case '7':
 						case '8':
 						case '9':
-							hval |= c;
+							hval |= c - '0';
 							break;
 						default:
 							TError("\\u encoding error");
@@ -223,17 +238,27 @@ JSON::iparse(const String& json, int64_t& parserpos)
 	if (json.strncmp(parserpos, "\"")) {
 		type = Type::string;
 		parserpos += 1;
-		str.reset(new String(parsestring(json, parserpos)));
+		delete str;
+		str = NULL;
+		str = new String;
+		*str = parsestring(json, parserpos);
 	} else if (json.strncmp(parserpos, "[")) {
 		{
 			bool cont = true;
 			type = Type::array;
-			array.reset(new Array<JSON>());
+			delete array;
+			array = NULL;
+			array = new Array<JSON>;
 			parserpos += 1;
 			parsewhitespace(json, parserpos);
+			if (json[parserpos] == ']') {
+				parserpos += 1;
+				parsewhitespace(json, parserpos);
+				cont = false;
+			}
 			while (cont) {
 				int64_t newpos = array->max + 1;
-				(*array.get())[newpos].iparse(json, parserpos);
+				(*array)[newpos].iparse(json, parserpos);
 				if (json[parserpos] != ',') {
 					if (json[parserpos] != ']') {
 						TError("no closing ']'");
@@ -250,9 +275,16 @@ JSON::iparse(const String& json, int64_t& parserpos)
 		{
 			bool cont = true;
 			type = Type::object;
-			aarray.reset(new AArray<JSON>());
+			delete aarray;
+			aarray = NULL;
+			aarray = new AArray<JSON>;
 			parserpos += 1;
 			parsewhitespace(json, parserpos);
+			if (json[parserpos] == '}') {
+				parserpos += 1;
+				parsewhitespace(json, parserpos);
+				cont = false;
+			}
 			while (cont) {
 				if (json[parserpos] != '"') {
 					TError("no key string");
@@ -265,7 +297,7 @@ JSON::iparse(const String& json, int64_t& parserpos)
 				}
 				parserpos += 1;
 				parsewhitespace(json, parserpos);
-				(*aarray.get())[key].iparse(json, parserpos);
+				(*aarray)[key].iparse(json, parserpos);
 				if (json[parserpos] != ',') {
 					if (json[parserpos] != '}') {
 						TError("no closing '}'");
@@ -314,6 +346,11 @@ JSON::iparse(const String& json, int64_t& parserpos)
 				case '-':
 				case 'E':
 				case 'e':
+					if (c == '.' && val == "") { // floats must start with '0'
+						TError("Not a number");
+					} else if ((val == "0" || val == "-0" || val == "+0") && !(c == '.' || c == 'e' || c == 'E')) { // numbers must not have leading zeros
+						TError("Not a number");
+					}
 					tmp[0] = c;
 					val += tmp;
 					parserpos += 1;
@@ -322,7 +359,15 @@ JSON::iparse(const String& json, int64_t& parserpos)
 					cont = false;
 				}
 			}
-			str.reset(new String(val));
+			char *p_end;
+			std::strtod(val.c_str(), &p_end);
+			if (*p_end != 0) {
+			    TError("Not a number");
+			}
+			delete str;
+			str = NULL;
+			str = new String;
+			*str = val;
 		}
 	}
 	parsewhitespace(json, parserpos);
@@ -332,9 +377,12 @@ void
 JSON::clear()
 {
 	type = Type::undefined;
-	str.reset();
-	array.reset();
-	aarray.reset();
+	delete str;
+	str = NULL;
+	delete array;
+	array = NULL;
+	delete aarray;
+	aarray = NULL;
 }
 
 String
@@ -361,19 +409,19 @@ JSON::ESC(const String& val)
 			ret += "\\/";
 			break;
 		case '\b':
-			ret += "\\\b";
+			ret += "\\b";
 			break;
 		case '\t':
-			ret += "\\\t";
+			ret += "\\t";
 			break;
 		case '\n':
-			ret += "\\\n";
+			ret += "\\n";
 			break;
 		case '\f':
-			ret += "\\\f";
+			ret += "\\f";
 			break;
 		case '\r':
-			ret += "\\\r";
+			ret += "\\r";
 			break;
 		default:
 			if (tmp < 0x20) {
@@ -403,55 +451,81 @@ JSON::ESC(const String& val)
 }
 
 String
-JSON::generate(bool newline) const
+JSON::generate(bool formated) const
 {
 	String ret;
+	Array<String> data;
+	int_generate(data, formated, 0);
+	if (formated) {
+		data << S + "\n";
+	}
+	ret = std::move(data);
+	return ret;
+}
+
+void
+JSON::int_generate(Array<String>& data, bool formated, int level) const
+{
 	String nl;
-	if (newline) {
+	String indent;
+	String indentx;
+	String space;
+	if (formated) {
 		nl = "\n";
+		char tmp[level + 1];
+		memset(tmp, '\t', level);
+		tmp[level] = '\0';
+		indent = tmp;
+		indentx = indent + "\t";
+		space = " ";
 	}
 	switch(type) {
 	case Type::undefined:
 		TError("undefined Object");
 	case Type::null:
-		ret = "null";
+		data << S + "null";
 		break;
 	case Type::string:
-		ret = S + "\"" + ESC(*str.get()) + "\"";
+		data << S + "\"" + ESC(*str) + "\"";
 		break;
 	case Type::object:
 		{
 			Array<String> keys = aarray->getkeys(true);
-			ret += S + "{" + nl;
+			data << S + "{" + nl;
 			for (int i = 0; i <= keys.max; i++) {
-				ret += S + "\"" + ESC(keys[i]) + "\"" + ":" + (*aarray.get())[keys[i]].generate(newline);
+				data << indentx + "\"" + ESC(keys[i]) + "\"" + space + ":" + space;
+				(*aarray)[keys[i]].int_generate(data, formated, level + 1);
 				if (i != keys.max) {
-					ret += ",";
+					data << S + "," + nl;
+				} else if (formated) {
+					data << nl;
 				}
-				ret += nl;
 			}
-			ret += S + "}" + nl;
+			data << indent + "}";
 		}
 		break;
 	case Type::number:
-		ret = *str.get();
+		data << *str;
 		break;
 	case Type::array:
-		ret += S + "[" + nl;
+		data << S + "[" + nl;
 		for (int i = 0; i <= array->max; i++) {
-			ret += S + (*array.get())[i].generate(newline);
-			if (i != array->max) {
-				ret += ",";
+			if (formated) {
+				data << indentx;
 			}
-			ret += nl;
+			(*array)[i].int_generate(data, formated, level + 1);
+			if (i != array->max) {
+				data << S + "," + nl;
+			} else if (formated) {
+				data << nl;
+			}
 		}
-		ret += S + "]" + nl;
+		data << indent + "]";
 		break;
 	case Type::boolean:
-		ret = (bool_state) ? "true" : "false";
+		data << S + ((bool_state) ? "true" : "false");
 		break;
 	}
-	return ret;
 }
 
 const JSON&
@@ -462,16 +536,19 @@ JSON::operator=(const JSON& rh)
 	switch(type) {
 	case Type::string:
 	case Type::number:
-		str.reset(new String(*rh.str.get()));
+		str = new String;
+		*str = *rh.str;
 		break;
 	case Type::boolean:
 		bool_state = rh.bool_state;
 		break;
 	case Type::array:
-		array.reset(new Array<JSON>(*rh.array.get()));
+		array = new Array<JSON>;
+		*array = *rh.array;
 		break;
 	case Type::object:
-		aarray.reset(new AArray<JSON>(*rh.aarray.get()));
+		aarray = new AArray<JSON>;
+		*aarray = *rh.aarray;
 		break;
 	case Type::null:
 	case Type::undefined:
@@ -516,11 +593,32 @@ JSON::operator=(bool rh)
 }
 
 const JSON&
+JSON::operator=(const char* rh)
+{
+	clear();
+	type = Type::string;
+	str = new String;
+	*str = rh;
+	return *this;
+}
+
+const JSON&
 JSON::operator=(const String& rh)
 {
 	clear();
 	type = Type::string;
-	str.reset(new String(rh));
+	str = new String;
+	*str = rh;
+	return *this;
+}
+
+const JSON&
+JSON::operator=(String&& rh)
+{
+	clear();
+	type = Type::string;
+	str = new String;
+	*str = std::move(rh);
 	return *this;
 }
 
@@ -529,7 +627,8 @@ JSON::operator=(int64_t rh)
 {
 	clear();
 	type = Type::number;
-	str.reset(new String(rh));
+	str = new String;
+	*str = String(rh);
 	return *this;
 }
 
@@ -538,7 +637,18 @@ JSON::operator=(const Array<JSON>& rh)
 {
 	clear();
 	type = Type::array;
-	array.reset(new Array<JSON>(rh));
+	array = new Array<JSON>;
+	*array = rh;
+	return *this;
+}
+
+const JSON&
+JSON::operator=(Array<JSON>&& rh)
+{
+	clear();
+	type = Type::array;
+	array = new Array<JSON>;
+	*array = std::move(rh);
 	return *this;
 }
 
@@ -547,7 +657,18 @@ JSON::operator=(const AArray<JSON>& rh)
 {
 	clear();
 	type = Type::object;
-	aarray.reset(new AArray<JSON>(rh));
+	aarray = new AArray<JSON>;
+	*aarray = rh;
+	return *this;
+}
+
+const JSON&
+JSON::operator=(AArray<JSON>&& rh)
+{
+	clear();
+	type = Type::object;
+	aarray = new AArray<JSON>;
+	*aarray = std::move(rh);
 	return *this;
 }
 
@@ -559,117 +680,215 @@ JSON::set_null()
 	return *this;
 }
 
+bool
+JSON::operator==(const char* rh) const
+{
+	cassertm(type == Type::string, rh);
+	return *str == rh;
+}
+
+bool
+JSON::operator==(const String& rh) const
+{
+	cassertm(type == Type::string, rh.c_str());
+	return *str == rh;
+}
+
+bool
+JSON::operator!=(const char* rh) const
+{
+	cassertm(type == Type::string, rh);
+	return *str != rh;
+}
+
+bool
+JSON::operator!=(const String& rh) const
+{
+	cassertm(type == Type::string, rh.c_str());
+	return *str != rh;
+}
+
 const JSON&
 JSON::operator[](const char* rh) const
 {
-	cassert(type == Type::object);
+	cassertm(type == Type::object, rh);
 	JSON* ret;
-	ret = &(*aarray.get())[rh];
+	ret = &(*aarray)[rh];
 	return *ret;
 }
 
 JSON&
 JSON::operator[](const char* rh)
 {
-	cassert(type == Type::object);
+	cassertm(type == Type::object, rh);
 	JSON* ret;
-	ret = &(*aarray.get())[rh];
+	ret = &(*aarray)[rh];
 	return *ret;
 }
 
 const JSON&
 JSON::operator[](const String& rh) const
 {
-	cassert(type == Type::object);
+	cassertm(type == Type::object, rh.c_str());
 	JSON* ret;
-	ret = &(*aarray.get())[rh];
+	ret = &(*aarray)[rh];
 	return *ret;
 }
 
 JSON&
 JSON::operator[](const String& rh)
 {
-	cassert(type == Type::object);
+	cassertm(type == Type::object, rh.c_str());
 	JSON* ret;
-	ret = &(*aarray.get())[rh];
+	ret = &(*aarray)[rh];
 	return *ret;
 }
 
 const JSON&
 JSON::operator[](int64_t rh) const
 {
-	cassert(type == Type::array);
+	cassertm(type == Type::array, reinterpret_cast<const char*>(rh));
 	JSON* ret;
-	ret = &(*array.get())[rh];
+	ret = &(*array)[rh];
 	return *ret;
 }
 
 JSON&
 JSON::operator[](int64_t rh)
 {
-	cassert(type == Type::array);
+	cassertm(type == Type::array, reinterpret_cast<const char*>(rh));
 	JSON* ret;
-	ret = &(*array.get())[rh];
+	ret = &(*array)[rh];
 	return *ret;
 }
 
 JSON::operator bool() const
 {
-	cassert(type == Type::boolean);
+	cassertm(type == Type::boolean, reinterpret_cast<const char*>(type));
 	return bool_state;
-}
-
-JSON::operator String() const
-{
-	cassert(type == Type::string);
-	return *str.get();
 }
 
 const String&
 JSON::get_numstr() const
 {
-	cassert(type == Type::number);
-	return *str.get();
+	cassertm(type == Type::number, reinterpret_cast<const char*>(type));
+	return *str;
+}
+const String&
+JSON::get_str() const
+{
+	cassertm(type == Type::string, reinterpret_cast<const char*>(type));
+	return *str;
+}
+
+const char*
+JSON::c_str() const
+{
+	cassertm(type == Type::string, reinterpret_cast<const char*>(type));
+	return str->c_str();
 }
 
 Array<JSON>&
 JSON::get_array()
 {
-	cassert(type == Type::array);
-	return *array.get();
+	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+	return *array;
+}
+
+int64_t
+JSON::get_max() const
+{
+	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+	return array->max;
 }
 
 AArray<JSON>&
 JSON::get_object()
 {
-	cassert(type == Type::object);
-	return *aarray.get();
+	cassertm(type == Type::object, reinterpret_cast<const char*>(type));
+	return *aarray;
 }
 
 bool
 JSON::exists(const String& rh) const
 {
-	cassert(type == Type::object);
-	return (*aarray.get()).exists(rh);
+	cassertm(type == Type::object, rh.c_str());
+	return aarray->exists(rh);
 }
 
 const Array<JSON>&
 JSON::get_array() const
 {
-	cassert(type == Type::array);
-	return *array.get();
+	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+	return *array;
 }
 
 const AArray<JSON>&
 JSON::get_object() const
 {
-	cassert(type == Type::object);
-	return *aarray.get();
+	cassertm(type == Type::object, reinterpret_cast<const char*>(type));
+	return *aarray;
 }
 
 bool
 JSON::is_null() const
 {
 	return (type == Type::null);
+}
+
+bool
+JSON::is_string() const
+{
+	return (type == Type::string);
+}
+
+bool
+JSON::is_object() const
+{
+	return (type == Type::object);
+}
+
+bool
+JSON::is_number() const
+{
+	return (type == Type::number);
+}
+
+bool
+JSON::is_array() const
+{
+	return (type == Type::array);
+}
+
+bool
+JSON::is_boolean() const
+{
+	return (type == Type::boolean);
+}
+
+bool
+JSON::is_type(const String& t) const
+{
+	bool ret = false;
+
+	if (t == "string" && type == Type::string) {
+		ret = true;
+	} else if (t == "number" && type == Type::number) {
+		ret = true;
+	} else if (t == "boolean" && type == Type::boolean) {
+		ret = true;
+	} else if (t == "array" && type == Type::array) {
+		ret = true;
+	} else if (t == "aarray" && type == Type::object) {
+		ret = true;
+	}
+
+	return ret;
+}
+
+JSON::Type
+JSON::get_type() const
+{
+	return type;
 }
 

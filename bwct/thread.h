@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/thread.h $
+ * $Date: 2017-09-24 03:12:48 +0200 (Sun, 24 Sep 2017) $
+ * $Author: ticso $
+ * $Rev: 33771 $
  */
 
 #ifndef _THREAD
@@ -16,7 +16,7 @@ class Thread;
 class Mutex;
 class CV;
 
-#include <bwct/bwct.h>
+#include "bwct.h"
 #include <pthread.h>
 
 class Thread : public Base {
@@ -38,7 +38,10 @@ public:
 	virtual void start();
 	void join();
 	void atforkwipe();
+	void setname(const String& name);
 };
+
+void setthreadname(const String& name);
 
 class Mutex : public Base {
 private:
@@ -55,6 +58,7 @@ public:
 		Guard(Mutex& nmtx, bool lck = true);
 		~Guard();
 		void lock();
+		int trylock();
 		void unlock();
 		bool islocked();
 	};

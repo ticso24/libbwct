@@ -3,16 +3,18 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/network.h $
+ * $Date: 2021-07-09 11:18:21 +0200 (Fri, 09 Jul 2021) $
+ * $Author: ticso $
+ * $Rev: 44487 $
  */
 
 #ifndef _NETWORK
 #define _NETWORK
 
 #include "fdhelper.h"
+#include "array.h"
+#include "sarray.h"
 
 extern SArray<int> fdescs_to_close;
 
@@ -25,6 +27,10 @@ public:
 		String peername;
 		String peeraddr;
 		String peerport;
+		volatile bool delayed_peerretrieve;
+		Mutex delay_mtx;
+		void post_init_peer();
+
 		int timeout;
 		virtual int retrievepeername();
 		virtual void mywaitread();
@@ -51,6 +57,7 @@ public:
 		virtual String getpeeraddr();
 		virtual String tinfo() const;
 		void nodelay(int flag);
+		virtual ssize_t sendfile(File &infile);
 		void nonblocking(bool flag);
 	};
 
@@ -73,5 +80,9 @@ public:
 		    int queuelen, int family = AF_UNSPEC);
 	};
 };
+
+uint32_t sctp_getpeerrtt(int sc, sctp_assoc_t id);
+uint32_t sctp_address_to_rtt(int sc, struct sockaddr *sa, socklen_t salen);
+sctp_assoc_t sctp_address_to_associd(int sc, struct sockaddr *sa, socklen_t salen);
 
 #endif /* !_NETWORK */

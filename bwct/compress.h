@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/compress.h $
+ * $Date: 2017-05-29 16:44:02 +0200 (Mon, 29 May 2017) $
+ * $Author: ticso $
+ * $Rev: 32572 $
  */
 
 #ifndef _COMPRESS
@@ -47,11 +47,10 @@ public:
 	virtual int ioctl(unsigned long request, void *argp = NULL);
 };
 
-#ifdef HAVE_LIBZ
 class Zfile : public Cmpfile {
 protected:
-	a_ptr<Matrix<char> > inbuf;
-	a_ptr<Matrix<char> > outbuf;
+	a_ptr<char> inbuf;
+	a_ptr<char> outbuf;
 	char *outptr;
 	z_stream zs;
 	virtual ssize_t microread(void *vptr, size_t n);
@@ -64,13 +63,11 @@ public:
 	~Zfile();
 	virtual void close();
 };
-#endif
 
-#ifdef HAVE_LIBBZ2
 class BZ2file : public Cmpfile {
 protected:
-	a_ptr<Matrix<char> > inbuf;
-	a_ptr<Matrix<char> > outbuf;
+	a_ptr<char> inbuf;
+	a_ptr<char> outbuf;
 	char *outptr;
 	bz_stream zs;
 	virtual ssize_t microread(void *vptr, size_t n);
@@ -83,6 +80,5 @@ public:
 	~BZ2file();
 	virtual void close();
 };
-#endif
 
 #endif /* !_COMPRESS */

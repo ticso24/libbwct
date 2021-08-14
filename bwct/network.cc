@@ -1,60 +1,84 @@
 /*
- * Copyright (c) 2001,02,03,04,08 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,03,04,08,18 Bernd Walter Computer Technology
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/network.cc $
+ * $Date: 2021-02-09 00:52:20 +0100 (Tue, 09 Feb 2021) $
+ * $Author: ticso $
+ * $Rev: 43854 $
  */
 
 #include "bwct.h"
 
 SArray<int> fdescs_to_close;
 
-Network::Net::Net() {
+Network::Net::Net()
+{
 	timeout = INFTIM;
+	delayed_peerretrieve = false;
 }
 
-Network::Net::Net(int nfd) {
+Network::Net::Net(int nfd)
+{
 	fd = nfd;
 	cassert(opened());
 	timeout = INFTIM;
 	canon = 0;
-	retrievepeername();
+	delayed_peerretrieve = true;
 }
 
-Network::Net::~Net() {
+Network::Net::~Net()
+{
+}
+
+void
+Network::Net::post_init_peer()
+{
+	if (delayed_peerretrieve) {
+		Mutex::Guard mtx(delay_mtx);
+		if (delayed_peerretrieve) {
+			retrievepeername();
+			delayed_peerretrieve = false;
+		}
+	}
 }
 
 String
-Network::Net::getpeername() {
+Network::Net::getpeername()
+{
+	post_init_peer();
 	return peername;
 }
 
 String
-Network::Net::getpeeraddr() {
+Network::Net::getpeeraddr()
+{
+	post_init_peer();
 	return peeraddr;
 }
 
 void
-Network::Net::connect_tcp4(const String& name, const String& port) {
+Network::Net::connect_tcp4(const String& name, const String& port)
+{
 	connect_tcp(name, port, AF_INET);
 }
 
 void
-Network::Net::connect_tcp6(const String& name, const String& port) {
+Network::Net::connect_tcp6(const String& name, const String& port)
+{
 	connect_tcp(name, port, AF_INET6);
 }
 
 ssize_t
-Network::Net::read(void *vptr, size_t n) {
+Network::Net::read(void *vptr, size_t n)
+{
 	return File::read(vptr, n);
 }
 
 ssize_t
-Network::Net::write(const void *vptr, size_t n) {
+Network::Net::write(const void *vptr, size_t n)
+{
 	return File::write(vptr, n);
 }
 
@@ -71,22 +95,26 @@ Network::Net::write(const String& data)
 }
 
 void
-Network::Net::settimeout(int nval) {
+Network::Net::settimeout(int nval)
+{
 	timeout = nval;
 }
 
 void
-Network::Net::nonblocking(bool flag) {
+Network::Net::nonblocking(bool flag)
+{
 	int val;
 	val = fcntl(fd, F_GETFL, 0);
-	if (flag)
+	if (flag) {
 		fcntl(fd, F_SETFL, val | O_NONBLOCK);
-	else
+	} else {
 		fcntl(fd, F_SETFL, val & ~O_NONBLOCK);
+	}
 }
 
 void
-Network::Net::nodelay(int flag) {
+Network::Net::nodelay(int flag)
+{
 	int val;
 
 	cassert(fd >= 0);
@@ -95,7 +123,8 @@ Network::Net::nodelay(int flag) {
 }
 
 void
-Network::Net::connect_UDS (const String& path) {
+Network::Net::connect_UDS (const String& path)
+{
 	// XXX limit pathname!
 	fd = socket(AF_UNIX, SOCK_STREAM, 0);
 	int val;
@@ -159,32 +188,37 @@ Network::Net::connect_tcp(const Array<String>& names, const String& port, int ms
 					break;
 				} else if (errno == EINPROGRESS) {
 					// we have to wait for connection
-					{
-						struct pollfd pfd;
-						int res;
+					struct pollfd pfd;
+					int res;
 
-						pfd.fd = fd;
-						pfd.events = POLLOUT;
-						pfd.revents = 0;
-						do {
-							// XXX in case of interrupted system calls we wait full
-							// time again, but it's not likely to happen
-							res = poll(&pfd, 1, ms_timeout);
-						} while (res == -1 && errno == EINTR);
-						if (res == 1) {
-							// we have a connection
+					bzero(&pfd, sizeof(pfd));
+					pfd.fd = fd;
+					pfd.events = POLLOUT; // POLLOUT for connected, POLLOUT and POLLIN for failed
+					do {
+						// XXX in case of interrupted system calls we wait full
+						// time again, but it's not likely to happen
+						res = poll(&pfd, 1, ms_timeout);
+					} while (res == -1 && errno == EINTR);
+					if (res == 1) {
+						// test if we have a connection or an error
+						int errval;
+						socklen_t size = sizeof(errval);
+						int res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &errval, &size);
+						if (res == 0 && errval == 0) {
 							connected = true;
-							break;
 						} else {
-							// we have a timeout or other connection problem
-							// close socket and try next resource
 							close();
 						}
+					} else {
+						// we have a timeout or other connection problem
+						// close socket and try next resource
+						close();
 					}
 				} else {
+					// likely a local connection refused
 					close();
 				}
-			} while ((info = info->ai_next) != NULL);
+			} while (!connected && (info = info->ai_next) != NULL);
 			if (connected) {
 				peeraddr = "";
 				if (info->ai_canonname != NULL) {
@@ -199,7 +233,7 @@ Network::Net::connect_tcp(const Array<String>& names, const String& port, int ms
 	}
 	if (!connected) {
 		throw Error(String("connecting [") + S.join(names, ", ") + "]:" +
-		    port + " failed: " + strerror(errno));
+		    port + " failed: " + get_strerror(errno));
 	}
 }
 
@@ -249,7 +283,7 @@ Network::Net::connect_tcp(const String& name, const String& port, int family)
 	if (res != 0) {
 		freeaddrinfo(infosave);
 		throw Error(String("connecting [") + name + "]:" +
-		    port + " failed: " + strerror(errno));
+		    port + " failed: " + get_strerror(errno));
 	}
 	peeraddr = "";
 	if (info->ai_canonname != NULL) {
@@ -262,14 +296,18 @@ Network::Net::connect_tcp(const String& name, const String& port, int family)
 }
 
 int
-Network::Net::retrievepeername() {
+Network::Net::retrievepeername()
+{
 	struct addrinfo *addrn;
 	struct addrinfo *addr0;
 	struct addrinfo hints;
 	int res;
-	Matrix<char> port(NI_MAXHOST);
-	Matrix<char> ip(NI_MAXHOST);
-	Matrix<char> name(NI_MAXHOST);
+	a_ptr<char> port;
+	port = new char[NI_MAXHOST];
+	a_ptr<char> ip;
+	ip = new char[NI_MAXHOST];
+	a_ptr<char> name;
+	name = new char[NI_MAXHOST];
 	int ret;
 	socklen_t addrlen;
 
@@ -282,12 +320,14 @@ Network::Net::retrievepeername() {
 	strcpy(ip.get(), "unresolved");
 	strcpy(name.get(), "unresolved");
 
-	Matrix<char> addrdt(SOCK_MAXADDRLEN);
+	a_ptr<char> addrdt;
+	addrdt = new char[SOCK_MAXADDRLEN];
 	struct sockaddr *addr = (struct sockaddr*)addrdt.get();
 	addrlen = SOCK_MAXADDRLEN;
 	res = ::getsockname(fd, addr, &addrlen);
-	if (res < 0)
+	if (res < 0) {
 		goto failed;
+	}
 
 	if (addr->sa_family == AF_UNIX) {
 		peerport = "";
@@ -297,13 +337,21 @@ Network::Net::retrievepeername() {
 	}
 
 	res = ::getpeername(fd, addr, &addrlen);
-	if (res < 0)
+	if (res < 0) {
 		goto failed;
+	}
 
 	/* get the reversemapping and portname for the client */
-	getnameinfo(addr, addrlen, name.get(), NI_MAXHOST, NULL, 0, 0);
-	getnameinfo(addr, addrlen, ip.get(), NI_MAXHOST, port.get(),
+	res = getnameinfo(addr, addrlen, name.get(), NI_MAXHOST, NULL, 0, 0);
+	if (res != 0) {
+		name.get()[0] = '\n';
+	}
+	res = getnameinfo(addr, addrlen, ip.get(), NI_MAXHOST, port.get(),
 	    NI_MAXHOST, NI_NUMERICHOST | NI_NUMERICSERV);
+	if (res != 0) {
+		ip.get()[0] = '\n';
+		port.get()[0] = '\n';
+	}
 
 	/* now check the results with the forwardmapping */
 	bzero(&hints, sizeof(hints));
@@ -323,33 +371,64 @@ Network::Net::retrievepeername() {
 			    &((struct sockaddr_in*)addrn->ai_addr)->sin_addr,
 			    &((struct sockaddr_in*)&addr)->sin_addr,
 			    sizeof(struct in_addr));
-			if (res == 0) goto ok;
+			if (res == 0) {
+				goto ok;
+			}
 		} else if (addrn->ai_family == AF_INET6) {
 			res = memcmp(
 			    &((struct sockaddr_in6*)addrn->ai_addr)->sin6_addr,
 			    &((struct sockaddr_in6*)addr)->sin6_addr,
 			    sizeof(struct in6_addr));
-			if (res == 0) goto ok;
+			if (res == 0) {
+				goto ok;
+			}
 		}
 	}
 	/* reversemapping isn't backed by forward mapping */
-failed:	ret = -1;
+failed:
+	ret = -1;
 ok:
-	if (addr0 != NULL)
+	if (addr0 != NULL) {
 		freeaddrinfo(addr0);
-	peername = name;
-	peeraddr = ip;
-	peerport = port;
+	}
+	peername = name.get();
+	peeraddr = ip.get();
+	peerport = port.get();
 	return ret;
 }
 
+ssize_t
+Network::Net::sendfile(File &infile)
+{
+	off_t offset = 0;
+	off_t sbytes;
+	int res;
+	int safeerrno;
+
+	nonblocking(0);
+	do {
+		res = ::sendfile(infile.fd, fd, offset, 0, NULL, &sbytes, 0);
+		offset += sbytes;
+		if (res < 0 && errno == EAGAIN) {
+			waitwrite();
+		}
+	} while (res < 0 && (errno == EAGAIN || errno == EINTR));
+	safeerrno = errno;
+	nonblocking(1);
+	if (res < 0) {
+		throw Error(String("sendfile: ") + get_strerror(safeerrno));
+	}
+	return (ssize_t)offset;
+}
+
 void
-Network::Net::mywaitread() {
+Network::Net::mywaitread()
+{
 	struct pollfd pfd;
 	int res;
 
+	bzero(&pfd, sizeof(pfd));
 	pfd.fd = fd;
-	pfd.revents = 0;
 	pfd.events = POLLIN;
 	do {
 		res = poll(&pfd, 1, timeout);
@@ -363,17 +442,21 @@ Network::Net::mywaitread() {
 	if (pfd.revents & POLLERR) {
 		throw Error("poll error");
 	}
+	if (pfd.revents & POLLNVAL) {
+		throw Error("poll invalid descriptor");
+	}
 	return;
 }
 
 void
-Network::Net::mywaitwrite() {
+Network::Net::mywaitwrite()
+{
 	struct pollfd pfd;
 	int res;
 
+	bzero(&pfd, sizeof(pfd));
 	pfd.fd = fd;
 	pfd.events = POLLOUT;
-	pfd.revents = 0;
 	do {
 		res = poll(&pfd, 1, timeout);
 	} while (res == -1);
@@ -386,11 +469,15 @@ Network::Net::mywaitwrite() {
 	if (pfd.revents & POLLERR) {
 		throw Error("poll error");
 	}
+	if (pfd.revents & POLLNVAL) {
+		throw Error("poll invalid descriptor");
+	}
 	return;
 }
 
 String
-Network::Net::tinfo() const {
+Network::Net::tinfo() const
+{
 	String ret;
 	ret << "(" << typeid(*this).name() << "@" << this <<
 	    ", fd=" << fd << ", peer=" << peeraddr << ")";
@@ -400,12 +487,13 @@ Network::Net::tinfo() const {
 Network::Listen::Listen() {
 }
 
-Network::Listen::~Listen() {
-	for(int i = 0; i < lfds.max; i++) {
+Network::Listen::~Listen()
+{
+	for (int i = 0; i < lfds.max; i++) {
 		for (int j = 0; j <= fdescs_to_close.max; j++) {
 			if (fdescs_to_close[j] == lfds[i]) {
-				j--;
 				fdescs_to_close.del(j);
+				j--;
 			}
 		}
 		close(lfds[i]);
@@ -413,26 +501,29 @@ Network::Listen::~Listen() {
 }
 
 int
-Network::Listen::add_tcpv4(const String& name, const String& port, int queuelen) {
+Network::Listen::add_tcpv4(const String& name, const String& port, int queuelen)
+{
 	return add_tcp(name, port, queuelen, AF_INET);
 }
 
 int
-Network::Listen::add_tcpv6(const String& name, const String& port, int queuelen) {
+Network::Listen::add_tcpv6(const String& name, const String& port, int queuelen)
+{
 	return add_tcp(name, port, queuelen, AF_INET6);
 }
 
 void
-Network::Listen::loop() {
-	// TODO: use poll & kevent
+Network::Listen::loop()
+{
+	// TODO: use kevent
 	cassert (lfds.max >= 0);
 	for (;;) {
 		struct pollfd pfd[lfds.max + 1];
 		int res;
 		for (int i = 0; i <= lfds.max; i++) {
+			bzero(&pfd[i], sizeof(struct pollfd));
 			pfd[i].fd = lfds[i];
 			pfd[i].events = POLLIN;
-			pfd[i].revents = 0;
 		}
 		do {
 			res = poll(pfd, lfds.max + 1, INFTIM);
@@ -440,9 +531,10 @@ Network::Listen::loop() {
 		for (int i = 0; i <= lfds.max; i++) {
 			if (pfd[i].revents) {
 				int clientfd = accept(lfds[i], NULL, NULL);
-				if (clientfd < 0 ) {
-					if (errno == EINTR || errno == EAGAIN)
+				if (clientfd < 0) {
+					if (errno == EINTR || errno == EAGAIN) {
 						continue;
+					}
 				} else {
 					pid_t child = fork();
 					if (child == 0) {
@@ -471,18 +563,19 @@ Network::Listen::loop() {
 				}
 			}
 		}
-
 	}
 }
 
 void
-Network::Listen::addfd(int nfd) {
+Network::Listen::addfd(int nfd)
+{
 	lfds << nfd;
 	fdescs_to_close << nfd;
 }
 
 int
-Network::Listen::add_UDS(const String& path, int flags, int queuelen) {
+Network::Listen::add_UDS(const String& path, int flags, int queuelen)
+{
 	struct sockaddr_un aun;
 	int lfd;
 	int val;
@@ -509,7 +602,8 @@ Network::Listen::add_UDS(const String& path, int flags, int queuelen) {
 }
 
 int
-Network::Listen::add_tcp(const String& name, const String& port, int queuelen, int family) {
+Network::Listen::add_tcp(const String& name, const String& port, int queuelen, int family)
+{
 	struct addrinfo *info;
 	struct addrinfo *infosave;
 	struct addrinfo hints;
@@ -556,7 +650,8 @@ Network::Listen::add_tcp(const String& name, const String& port, int queuelen, i
 }
 
 void
-Network::Listen::ncox(int fd) {
+Network::Listen::ncox(int fd)
+{
 	cassert(fd >= 0);
 	int val = fcntl(fd, F_GETFD, 0);
 	cassert(val >= 0);
@@ -565,7 +660,8 @@ Network::Listen::ncox(int fd) {
 }
 
 void
-Network::Listen::cox(int fd) {
+Network::Listen::cox(int fd)
+{
 	cassert(fd >= 0);
 	int val = fcntl(fd, F_GETFD, 0);
 	cassert(val >= 0);
@@ -574,7 +670,58 @@ Network::Listen::cox(int fd) {
 }
 
 Network::Net *
-Network::Listen::newcon(int clientfd) {
+Network::Listen::newcon(int clientfd)
+{
 	return new Net(clientfd);
 }
 
+/*
+ * function to get round trip time by association ID
+ * for documentation only
+ */
+uint32_t
+sctp_getpeerrtt(int sc, sctp_assoc_t id)
+{
+	uint32_t ret;
+	struct sctp_paddrinfo info;
+	socklen_t len = sizeof(info);
+	sctp_opt_info(sc, id, SCTP_GET_PEER_ADDR_INFO, &info, &len);
+	// XXX error handling
+	ret = info.spinfo_srtt;
+	return ret;
+}
+
+/*
+ * function to get round trip time by address
+ * for documentation only
+ */
+uint32_t
+sctp_address_to_rtt(int sc, struct sockaddr *sa, socklen_t salen)
+{
+	uint32_t ret = 0xffffffff;
+	struct sctp_paddrinfo info;
+	bcopy(sa, &info.spinfo_address, salen);
+	socklen_t len = sizeof(info);
+	if (sctp_opt_info(sc, 0, SCTP_GET_PEER_ADDR_INFO, &info, &len) == 0) {
+		ret = info.spinfo_srtt;
+	}
+	return ret;
+}
+
+/*
+ * function to get the association ID by address
+ * for documentation only
+ */
+sctp_assoc_t
+sctp_address_to_associd(int sc, struct sockaddr *sa, socklen_t salen)
+{
+	sctp_assoc_t ret;
+	struct sctp_paddrparams sp;
+	bzero(&sp, sizeof(sp));
+	socklen_t len = sizeof(sp);
+	bcopy(sa, &sp.spp_address, salen);
+	sctp_opt_info(sc, 0, SCTP_PEER_ADDR_PARAMS, &sp, &len);
+	// XXX error handling
+	ret = sp.spp_assoc_id;
+	return ret;
+}

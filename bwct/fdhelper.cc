@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/fdhelper.cc $
+ * $Date: 2019-10-01 17:13:02 +0200 (Tue, 01 Oct 2019) $
+ * $Author: jk $
+ * $Rev: 40740 $
  */
 
 #include "bwct.h"
@@ -245,7 +245,7 @@ File::open(const String& path, int flags, int mode) {
 	if (fd >= 0)
 		filename = path;
 	else {
-		throw Error(path + ": " + strerror(errno));
+		throw Error(path + ": " + get_strerror(errno));
 	}
 }
 
@@ -294,14 +294,24 @@ File::mywaitwrite() {
 }
 
 void *
-File::mmap(size_t len, off_t offset) {
+File::mmap(size_t len, off_t offset, int prot) {
 	// TODO: autoexpand
-	return ::mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_SHARED, fd, offset);
+	void *ret;
+	ret = ::mmap(NULL, len, prot, MAP_SHARED, fd, offset);
+	if (ret == MAP_FAILED) {
+		throw Error(S + "mmap: " + get_strerror(errno));
+	}
+	return ret;
 }
 
 int
 File::munmap(void *addr, size_t len) {
-	return ::munmap(addr, len);
+	int res;
+	res = ::munmap(addr, len);
+	if (res < 0) {
+		throw Error(S + "munmap: " + get_strerror(errno));
+	}
+	return res;
 }
 
 String
@@ -312,7 +322,7 @@ File::realpath(String path) {
 
 	res = ::realpath(path.c_str(), resolve_path);
 	if (res == NULL) {
-		throw Error(path + ": " + strerror(errno));
+		throw Error(path + ": " + get_strerror(errno));
 
 	}
 	ret = res;
@@ -428,10 +438,10 @@ Stat::lstat(const String& path) {
 	int ret;
 #if HAVE_OPEN64
 	struct stat64 st;
-	ret =  ::lstat64(path.c_str(), &st);
+	ret = ::lstat64(path.c_str(), &st);
 #else
 	struct stat st;
-	ret =  ::lstat(path.c_str(), &st);
+	ret = ::lstat(path.c_str(), &st);
 #endif
 	init(&st);
 	return ret;
@@ -442,10 +452,10 @@ Stat::fstat(int fd) {
 	int ret;
 #if HAVE_OPEN64
 	struct stat64 st;
-	ret =  ::fstat64(fd, &st);
+	ret = ::fstat64(path.c_str(), &st);
 #else
 	struct stat st;
-	ret =  ::fstat(fd, &st);
+	ret = ::fstat(fd, &st);
 #endif
 	init(&st);
 	return ret;
@@ -492,7 +502,7 @@ Dir::open(const String& ndir) {
 		closedir(dir);
 	dirname = ndir;
 	if (dirname[dirname.length()] != '/')
-			dirname += "/";
+		dirname += "/";
 	dir = opendir(dirname.c_str());
 	entry = NULL;
 }
@@ -501,12 +511,14 @@ int
 Dir::read() {
 	cassert(dir != NULL);
 #if HAVE_READDIR64
-        entry = readdir64(dir);
+	entry = readdir64(dir);
 #else
 	entry = readdir(dir);
 #endif
-	if (entry != NULL)
+	if (entry != NULL) {
 		name = entry->d_name;
+		type = entry->d_type;
+	}
 	return (entry != NULL);
 }
 

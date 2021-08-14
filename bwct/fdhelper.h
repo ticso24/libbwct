@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/fdhelper.h $
+ * $Date: 2019-10-01 15:09:37 +0200 (Tue, 01 Oct 2019) $
+ * $Author: ticso $
+ * $Rev: 40730 $
  */
 
 #ifndef _FDHELPER
@@ -24,7 +24,7 @@ class Network;
 class File : public Base {
 	friend class Network;
 	friend class Stat;
-private:
+protected:
 	char readbuf[8*1024];
 	char* rbufpos;
 	size_t rbufsize;
@@ -60,7 +60,7 @@ public:
 	virtual void ncox();
 	virtual void cox();
 	virtual String tinfo() const;
-	virtual void *mmap(size_t len, off_t offset);
+	virtual void *mmap(size_t len, off_t offset, int prot);
 	virtual int munmap(void *addr, size_t len);
 	virtual ssize_t sendfile(File &infile);
 	static String realpath(String path);
@@ -134,6 +134,7 @@ private:
 public:
 	String dirname;
 	String name;
+	uint8_t type;
 	Dir();
 	Dir(const Dir& rhs);
 	~Dir();

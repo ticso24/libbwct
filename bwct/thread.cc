@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/thread.cc $
+ * $Date: 2020-03-10 14:37:35 +0100 (Tue, 10 Mar 2020) $
+ * $Author: ticso $
+ * $Rev: 42224 $
  */
 
 #include <bwct/bwct.h>
@@ -93,12 +93,24 @@ Thread::atforkwipe()
 }
 
 void
+Thread::setname(const String& name)
+{
+	pthread_set_name_np(id, name.c_str());
+}
+
+void
 Thread::join()
 {
 
 	cassert(id == 0);
 	if (pthread_join(id, &retvalue) != 0)
 		throw Error("joining thread failed");
+}
+
+void
+setthreadname(const String& name)
+{
+	pthread_set_name_np(pthread_self(), name.c_str());
 }
 
 Mutex::Mutex()
@@ -110,7 +122,7 @@ Mutex::Mutex()
 
 Mutex::~Mutex()
 {
-	// TODO we can't thow an exception from a destructor
+	abort_assert (!locked);
 	pthread_mutex_destroy(&mutex);
 }
 
@@ -188,6 +200,18 @@ Mutex::Guard::lock()
 	locked = true;
 }
 
+int
+Mutex::Guard::trylock()
+{
+	int ret;
+	cassert (!locked);
+	ret = mtx->trylock();
+	if (ret == 0) {
+		locked = true;
+	}
+	return ret;
+}
+
 void
 Mutex::Guard::unlock()
 {
@@ -212,8 +236,8 @@ CV::wait(Mutex &mtx, time_t timeout)
 	int ret;
 	mtx.locked = false;
 	struct timespec ts;
-	ts.tv_sec = time(NULL) + timeout;
-	ts.tv_nsec = 0;
+	clock_gettime(CLOCK_REALTIME_FAST, &ts);
+	ts.tv_sec += timeout;
 	ret = pthread_cond_timedwait(&cv, &mtx.mutex, &ts);
 	mtx.locked = true;
 	return ret;
@@ -289,8 +313,7 @@ cyclic::cyclic(uint64_t nperiod)
 cyclic::~cyclic()
 {
 	// TODO terminate thread
-	// TODO we can't thow an exception from a destructor
-	//cassert(0);
+	abort_assert(0);
 }
 
 void *

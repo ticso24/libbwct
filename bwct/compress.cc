@@ -3,10 +3,10 @@
  * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/compress.cc $
+ * $Date: 2017-05-29 16:44:02 +0200 (Mon, 29 May 2017) $
+ * $Author: ticso $
+ * $Rev: 32572 $
  */
 
 #include "bwct.h"
@@ -88,8 +88,8 @@ Zfile::close()
 			err = deflate(&zs, Z_FINISH);
 			if (err != Z_OK)
 				throw Error("Compress error");
-			char *ptr = outbuf->get();
-			size_t nleft = outbuf->size() - zs.avail_out;
+			char *ptr = outbuf.get();
+			size_t nleft = 65536 - zs.avail_out;
 			while (nleft > 0) {
 				ssize_t nwritten;
 				if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
@@ -112,17 +112,17 @@ Zfile::close()
 void
 Zfile::cmpinit(int comp, int iscomp)
 {
-	inbuf = new Matrix<char>(65536);
-	outbuf = new Matrix<char>(65536);
-	outptr = outbuf->get();
+	inbuf = new char[65536];
+	outbuf = new char[65536];
+	outptr = outbuf.get();
 	zs.zalloc = NULL;
 	zs.zfree = NULL;
 	zs.opaque = NULL;
 	zs.next_in = 0;
 	zs.avail_in = 0;
-	outptr = outbuf->get();
-	zs.next_out = (Bytef*)outbuf->get();
-	zs.avail_out = outbuf->size();
+	outptr = outbuf.get();
+	zs.next_out = (Bytef*)outbuf.get();
+	zs.avail_out = 65536;
 	this->comp = comp;
 	this->iscomp = iscomp;
 	int err;
@@ -145,14 +145,14 @@ Zfile::microread(void *vptr, size_t n)
 	if (!comp && !iscomp)
 		throw Error("decompressread uncompressed file");
 	for (;;) {
-		if ((char*)zs.next_out != outbuf->get()) {
+		if ((char*)zs.next_out != outbuf.get()) {
 			size_t len = MIN(n, (size_t)((char*)zs.next_out - outptr));
 			bcopy(outptr, vptr, len);
 			outptr += len;
 			return len;
 		}
 		while (zs.avail_in == 0) {
-			ssize_t res = File::microread(inbuf->get(), inbuf->size());
+			ssize_t res = File::microread(inbuf.get(), 65536);
 			if (res < 0) {
 				if (errno != EAGAIN && errno != EINTR)
 					return res;
@@ -166,11 +166,11 @@ Zfile::microread(void *vptr, size_t n)
 						if (err != Z_OK)
 							throw Error("Compress error");
 						if (zs.avail_out == 0) {
-							outptr = outbuf->get();
-							zs.next_out = (Bytef*)outbuf->get();
-							zs.avail_out = outbuf->size();
+							outptr = outbuf.get();
+							zs.next_out = (Bytef*)outbuf.get();
+							zs.avail_out = 65536;
 						}
-						if ((char*)zs.next_out != outbuf->get()) {
+						if ((char*)zs.next_out != outbuf.get()) {
 							size_t len = MIN(n, (size_t)((char*)zs.next_out - outptr));
 							bcopy(outptr, vptr, len);
 							outptr += len;
@@ -182,9 +182,9 @@ Zfile::microread(void *vptr, size_t n)
 			zs.avail_in = res;
 		}
 		if (zs.avail_out == 0) {
-			outptr = outbuf->get();
-			zs.next_out = (Bytef*)outbuf->get();
-			zs.avail_out = outbuf->size();
+			outptr = outbuf.get();
+			zs.next_out = (Bytef*)outbuf.get();
+			zs.avail_out = 65536;
 		}
 		int err;
 		if (comp) {
@@ -208,14 +208,14 @@ Zfile::microwrite(const void *vptr, size_t n)
 		throw Error("compresswrite uncompressed file");
 	if (!comp && iscomp)
 		throw Error("decompresswrite compressed file");
-	size_t len = MIN(n, inbuf->size());
-	bcopy(vptr, inbuf->get(), len);
+	size_t len = MIN(n, 65536);
+	bcopy(vptr, inbuf.get(), len);
 	zs.next_in = (Bytef*)vptr;
 	zs.avail_in = len;
 	do {
-		outptr = outbuf->get();
-		zs.next_out = (Bytef*)outbuf->get();
-		zs.avail_out = outbuf->size();
+		outptr = outbuf.get();
+		zs.next_out = (Bytef*)outbuf.get();
+		zs.avail_out = 65536;
 		int err;
 		if (comp) {
 			err = deflate(&zs, Z_NO_FLUSH);
@@ -226,8 +226,8 @@ Zfile::microwrite(const void *vptr, size_t n)
 			if (err != Z_OK)
 				throw Error("inflate error");
 		}
-		char *ptr = outbuf->get();
-		size_t nleft = outbuf->size() - zs.avail_out;
+		char *ptr = outbuf.get();
+		size_t nleft = 65536 - zs.avail_out;
 		while (nleft > 0) {
 			ssize_t nwritten;
 			if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
@@ -246,7 +246,7 @@ Zfile::microwrite(const void *vptr, size_t n)
 void
 Zfile::mywaitread()
 {
-	if ((char*)zs.next_out != outbuf->get()) {
+	if ((char*)zs.next_out != outbuf.get()) {
 		return;
 	}
 	File::mywaitread();
@@ -284,8 +284,8 @@ BZ2file::close()
 			err = BZ2_bzCompress(&zs, BZ_FINISH);
 			if (err != BZ_OK)
 				throw Error("Compress error");
-			char *ptr = outbuf->get();
-			size_t nleft = outbuf->size() - zs.avail_out;
+			char *ptr = outbuf.get();
+			size_t nleft = 65536 - zs.avail_out;
 			while (nleft > 0) {
 				ssize_t nwritten;
 				if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
@@ -308,17 +308,17 @@ BZ2file::close()
 void
 BZ2file::cmpinit(int comp, int iscomp)
 {
-	inbuf = new Matrix<char>(65536);
-	outbuf = new Matrix<char>(65536);
-	outptr = outbuf->get();
+	inbuf = new char[65536];
+	outbuf = new char[65536];
+	outptr = outbuf.get();
 	zs.bzalloc = NULL;
 	zs.bzfree = NULL;
 	zs.opaque = NULL;
 	zs.next_in = 0;
 	zs.avail_in = 0;
-	outptr = outbuf->get();
-	zs.next_out = outbuf->get();
-	zs.avail_out = outbuf->size();
+	outptr = outbuf.get();
+	zs.next_out = outbuf.get();
+	zs.avail_out = 65536;
 	this->comp = comp;
 	this->iscomp = iscomp;
 	int err;
@@ -341,7 +341,7 @@ BZ2file::microread(void *vptr, size_t n)
 	if (!comp && !iscomp)
 		throw Error("decompressread uncompressed file");
 	for (;;) {
-		if ((char*)zs.next_out != outbuf->get()) {
+		if ((char*)zs.next_out != outbuf.get()) {
 			size_t len = MIN(n, (size_t)((char*)zs.next_out - outptr));
 			bcopy(outptr, vptr, len);
 			outptr += len;
@@ -349,7 +349,7 @@ BZ2file::microread(void *vptr, size_t n)
 		}
 		while (zs.avail_in == 0) {
 			ssize_t res;
-			res = File::microread(inbuf->get(), inbuf->size());
+			res = File::microread(inbuf.get(), 65536);
 			if (res < 0) {
 				if (errno != EAGAIN && errno != EINTR)
 					return res;
@@ -363,11 +363,11 @@ BZ2file::microread(void *vptr, size_t n)
 							if (err != BZ_OK)
 								throw Error("Compress error");
 						if (zs.avail_out == 0) {
-							outptr = outbuf->get();
-							zs.next_out = outbuf->get();
-							zs.avail_out = outbuf->size();
+							outptr = outbuf.get();
+							zs.next_out = outbuf.get();
+							zs.avail_out = 65536;
 						}
-						if ((char*)zs.next_out != outbuf->get()) {
+						if ((char*)zs.next_out != outbuf.get()) {
 							size_t len = MIN(n, (size_t)((char*)zs.next_out - outptr));
 							bcopy(outptr, vptr, len);
 							outptr += len;
@@ -379,9 +379,9 @@ BZ2file::microread(void *vptr, size_t n)
 			zs.avail_in = res;
 		}
 		if (zs.avail_out == 0) {
-			outptr = outbuf->get();
-			zs.next_out = outbuf->get();
-			zs.avail_out = outbuf->size();
+			outptr = outbuf.get();
+			zs.next_out = outbuf.get();
+			zs.avail_out = 65536;
 		}
 		int err;
 		if (comp) {
@@ -405,14 +405,14 @@ BZ2file::microwrite(const void *vptr, size_t n)
 		throw Error("compresswrite uncompressed file");
 	if (!comp && iscomp)
 		throw Error("decompresswrite compressed file");
-	size_t len = MIN(n, inbuf->size());
-	bcopy(vptr, inbuf->get(), len);
+	size_t len = MIN(n, 65536);
+	bcopy(vptr, inbuf.get(), len);
 	zs.next_in = (char*)vptr;
 	zs.avail_in = len;
 	do {
-		outptr = outbuf->get();
-		zs.next_out = outbuf->get();
-		zs.avail_out = outbuf->size();
+		outptr = outbuf.get();
+		zs.next_out = outbuf.get();
+		zs.avail_out = 65536;
 		int err;
 		if (comp) {
 			err = BZ2_bzCompress(&zs, BZ_RUN);
@@ -423,8 +423,8 @@ BZ2file::microwrite(const void *vptr, size_t n)
 			if (err != BZ_OK)
 				throw Error("BZ2_bzDecompress error");
 		}
-		char *ptr = outbuf->get();
-		size_t nleft = outbuf->size() - zs.avail_out;
+		char *ptr = outbuf.get();
+		size_t nleft = 65536 - zs.avail_out;
 		while (nleft > 0) {
 			ssize_t nwritten;
 			if ((nwritten = File::microwrite(ptr, nleft)) < 0) {
@@ -443,7 +443,7 @@ BZ2file::microwrite(const void *vptr, size_t n)
 void
 BZ2file::mywaitread()
 {
-	if ((char*)zs.next_out != outbuf->get())
+	if ((char*)zs.next_out != outbuf.get())
 		return;
 	File::mywaitread();
 }

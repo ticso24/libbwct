@@ -16,12 +16,13 @@
 #include <bwct/fdhelper.h>
 #include <bwct/network.h>
 #include <bwct/tool.h>
+#include <bwct/array.h>
 #include <bwct/thread.h>
-//#include <bwct/ssl.h>
+#include <bwct/ssl.h>
 #include <bwct/compress.h>
-//#include <bwct/database.h>
 #include <bwct/json.h>
 #include <bwct/aarray.h>
+#include <bwct/sarray.h>
 
 #undef PACKAGE_BUGREPORT
 #undef PACKAGE_VERSION

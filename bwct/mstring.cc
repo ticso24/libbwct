@@ -3,14 +3,13 @@
  * Copyright (c) 2008,09,10 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/string.cc $
+ * $Date: 2021-07-14 16:54:23 +0200 (Wed, 14 Jul 2021) $
+ * $Author: ticso $
+ * $Rev: 44520 $
  */
 
-#include <bwct/base.h>
-#include <bwct/bwct.h>
+#include "bwct.h"
 
 #define initsize 8
 
@@ -23,20 +22,22 @@ String::rebufsize(size_t len)
 
 	size_t nlen = len;
 
-	if (nlen >= 1024) {
-		nlen =  (nlen + 1024) & ~1023;
-	} else {
-		nlen = 8;
-		while(len > nlen) {
+	if (nlen > buflen) {
+		if (nlen >= 1024) {
+			nlen = nlen + 1024;
+		} else {
+			nlen = 8;
+			while(len > nlen) {
+				nlen <<= 1;
+			}
 			nlen <<= 1;
 		}
-		nlen <<= 1;
-	}
-	abort_assert(nlen >= len);
-	data = (char*)realloc(data, nlen);
-	buflen = nlen;
-	if (data == NULL) {
-		throw std::bad_alloc();
+		abort_assert(nlen >= len);
+		data = (char*)realloc(data, nlen);
+		buflen = nlen;
+		if (data == NULL) {
+			throw std::bad_alloc();
+		}
 	}
 }
 
@@ -47,7 +48,7 @@ String::bufsize(size_t len)
 
 	free(data);
 	if (nlen >= 1024) {
-		nlen =  (nlen + 1024) & ~1023;
+		nlen = nlen + 1024;
 	} else {
 		for (int i = 0; i < 10; i++) {
 			nlen >>= 1;
@@ -73,17 +74,6 @@ String::String()
 	bufsize(initsize);
 	*data = '\0';
 	ln = 0;
-}
-
-String::String(const Matrix<char>& rhs)
-{
-	data = NULL;
-	udata = NULL;
-	type = Type_Enum::plain;
-	size_t rhslen = strlen(rhs.get());
-	bufsize(rhslen + 1);
-	strcpy(data, rhs.get());
-	ln = rhslen;
 }
 
 String::String(const char* rhs)
@@ -276,6 +266,14 @@ String::String(File rhs)
 	ln = len;
 }
 
+String::String(const JSON& rhs)
+{
+	data = NULL;
+	udata = NULL;
+	ln = 0;
+	*this = std::move(rhs.get_str());
+}
+
 String::String(const Array<String>& rhs)
 {
 	data = NULL;
@@ -303,17 +301,6 @@ String::String(const Array<String>& rhs)
 		}
 	}
 	ln = size;
-}
-
-const String&
-String::operator= (const Matrix<char>& rhs)
-{
-	size_t rhslen = strlen(rhs.get());
-	bufsize(rhslen + 1);
-	strcpy(data, rhs.get());
-	type = Type_Enum::plain;
-	ln = rhslen;
-	return *this;
 }
 
 const String&
@@ -346,14 +333,12 @@ String::operator= (const Array<String>& rhs)
 const String&
 String::operator= (const String &rhs)
 {
-	char *tmpdata;
-	tmpdata = data;
+	free(data);
 	data = NULL;
 	type = rhs.type;
 	bufsize(rhs.ln + 1);
 	strcpy(data, rhs.data);
 	ln = rhs.ln;
-	free(tmpdata);
 	return *this;
 }
 
@@ -383,14 +368,12 @@ String::operator= (const char *rhs)
 		rhs = "(null)";
 	}
 	type = Type_Enum::plain;
-	char *tmpdata;
-	tmpdata = data;
+	free(data);
 	data = NULL;
 	size_t rhslen = strlen(rhs);
 	bufsize(rhslen + 1);
 	strcpy(data, rhs);
 	ln = rhslen;
-	free(tmpdata);
 	return *this;
 }
 
@@ -404,7 +387,7 @@ String::operator= (bool rhs)
 	if (rhs) {
 		data[0] = '1';
 	}
-	ln = strlen(data);
+	ln = 1;
 	type = Type_Enum::plain;
 	return *this;
 }
@@ -464,6 +447,13 @@ String::operator= (File rhs)
 {
 	String tmp(rhs);
 	*this = std::move(tmp);
+	return *this;
+}
+
+const String&
+String::operator= (const JSON& rhs)
+{
+	*this = std::move(rhs.get_str());
 	return *this;
 }
 
@@ -640,12 +630,6 @@ String::operator== (const String &rhs) const
 }
 
 bool
-String::operator== (const Matrix<char>& rhs) const
-{
-	return (strcmp(data, rhs.get()) == 0);
-}
-
-bool
 String::operator== (const char *rhs) const
 {
 	if (rhs == NULL) {
@@ -662,12 +646,6 @@ String::operator!= (const String &rhs) const
 		return true;
 	}
 	return (strcmp(data, rhs.data) != 0);
-}
-
-bool
-String::operator!= (const Matrix<char>& rhs) const
-{
-	return (strcmp(data, rhs.get()) != 0);
 }
 
 bool
@@ -692,6 +670,24 @@ String::operator+(String &&rhs) const {
 	String nstr(*this);
 	nstr += std::move(rhs);
 	return nstr;
+}
+
+void
+String::add_memory(void* data, size_t len)
+{
+	if (len == 0) {
+		return;
+	}
+	for (size_t i = 0; i <= len; i++) {
+		if (*(char*)data == '\0') {
+			len = i;
+			break;
+		}
+	}
+	rebufsize(ln + len + 1);
+	memcpy(this->data + ln, data, len);
+	ln += len;
+	this->data[ln] = '\0';
 }
 
 String&
@@ -724,21 +720,11 @@ String::operator+= (String &&rhs)
 }
 
 String&
-String::operator+= (const Matrix<char>& rhs)
-{
-	size_t rhslen = strlen(rhs.get());
-	rebufsize(ln + rhslen + 1);
-	strcpy(data + ln, rhs.get());
-	ln += rhslen;
-	return *this;
-}
-
-String&
 String::operator+= (const Array<String>& rhs)
 {
 	String tmp;
 	tmp = rhs;
-	*this += tmp;
+	*this += std::move(tmp);
 	return *this;
 }
 
@@ -1051,6 +1037,48 @@ String::CSVsplit() const
 }
 
 Array<String>
+String::linesplit() const
+{
+	Array<String> ret;
+
+	String buf = *this;
+	String tmp;
+	bool moredata = false;
+	char *pos;
+	char *lastpos;
+	for (pos = lastpos = buf.data; pos < (buf.data + buf.ln); pos++) {
+		if (pos[0] == '\n') {
+			pos[0] = '\0';
+			if (pos[1] == '\r') {
+				pos[1] = '\0';
+				pos++;
+			}
+			tmp = lastpos;
+			lastpos = pos + 1;
+			ret << tmp;
+			moredata = false;
+		} else if (pos[0] == '\r') {
+			pos[0] = '\0';
+			if (pos[1] == '\n') {
+				pos[1] = '\0';
+				pos++;
+			}
+			tmp = lastpos;
+			lastpos = pos + 1;
+			ret << tmp;
+			moredata = false;
+		} else {
+			moredata = true;
+		}
+	}
+	if (moredata) {
+		tmp = lastpos;
+		ret << lastpos;
+	}
+	return ret;
+}
+
+Array<String>
 String::strsplit(String delim) const
 {
 	Array<String> ret;
@@ -1099,6 +1127,35 @@ String::split(String delim) const
 			ret[i] = res;
 			ret[i].type = type;
 			i++;
+		}
+	} while (res != NULL);
+
+	return ret;
+}
+
+Array<String>
+String::split(String delim, int64_t len) const
+{
+	Array<String> ret;
+	int i;
+	char *res;
+	char *tmp;
+	String copy(*this);
+
+	i = 0;
+	tmp = copy.data;
+	do {
+		if (i + 1 == len && tmp != NULL) {
+			ret[i] = tmp;
+			ret[i].type = type;
+			res = NULL;
+		} else {
+			res = strsep(&tmp, delim.c_str());
+			if (res != NULL) {
+				ret[i] = res;
+				ret[i].type = type;
+				i++;
+			}
 		}
 	} while (res != NULL);
 
@@ -1202,7 +1259,7 @@ String::replacefirst(const String &search, const String &replace)
 		tmp = data;
 		tmp += replace;
 		tmp += (match + search.ln);
-		*this = tmp;
+		*this = std::move(tmp);
 		return true;
 	}
 	return false;
@@ -1228,7 +1285,7 @@ String::replace(const String &search, const String &replace)
 	}
 	if (matches > 0) {
 		tmp += remaining;
-		*this = tmp;
+		*this = std::move(tmp);
 	}
 	return matches;
 }
@@ -1246,8 +1303,13 @@ long long
 String::getll() const
 {
 	long long ret;
+	char* res;
 
-	ret = atoll(data);
+	ret = strtoll(data, &res, 10);
+	if (res == data) {
+		//TError(S + "non numeric input data in" + *this);
+		log(S + "non numeric input data in " + *this);
+	}
 	return ret;
 }
 
@@ -1364,9 +1426,7 @@ String::re_subst(const String& re)
 #endif
 	return ret;
 }
-#endif
 
-#if 0
 bool
 String::re_comp(const String& re) const
 {
@@ -1437,67 +1497,6 @@ String::reverse()
 	tmp[ln] = '\0';
 	strcpy(data, tmp);
 }
-
-#if 0
-// XXX Wrapper object to handle const/non-const char** in iconv
-class iconv_wrap
-{
-	char** data;
-	public:
-		iconv_wrap(char** d)
-		{
-			data = d;
-		}
-		operator char** () const
-		{
-			return data;
-		}
-		operator const char** () const
-		{
-			return const_cast<const char**>(data);
-		}
-};
-#endif
-
-#if 0
-const String&
-String::convert(const String& from, const String& to)
-{
-	if (ln != 0) {
-		size_t buflen = ln * 4 + 4;
-		a_ptr<char> tmpbuf;
-		tmpbuf = new char[buflen];
-		iconv_t ic = iconv_open(to.c_str(), from.c_str());
-		ssize_t res;
-		iconv_wrap inbuf(&data);
-		size_t inbuflen = ln;
-		char *outbuf = tmpbuf.get();
-		size_t outbuflen = buflen - 1;
-		while(inbuflen > 0) {
-			// those Linux idiots are so clever to return -1 on error with an unsigned size_t.
-			res = (ssize_t)iconv(ic, inbuf, &inbuflen, &outbuf, &outbuflen);
-			if (res < 0) {
-				abort_assert(errno != E2BIG);
-				if (errno == EILSEQ || errno == EINVAL) {
-					// input encoding error
-					// skip a byte and continue with the rest
-					log("iconv conversion error");
-					char** inbuf_help = inbuf;
-					(*inbuf_help)++;
-					inbuflen--;
-				} else {
-					iconv_close(ic);
-					TError(S + "unknown conversion failure");
-				}
-			}
-		}
-		iconv_close(ic);
-		*outbuf = '\0';
-		*this = tmpbuf.get();
-	}
-	return *this;
-}
-#endif
 
 bool
 String::test_utf() const

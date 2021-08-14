@@ -3,10 +3,10 @@
  * Copyright (c) 2008,09,10 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/string.h $
+ * $Date: 2019-09-16 14:32:28 +0200 (Mon, 16 Sep 2019) $
+ * $Author: ticso $
+ * $Rev: 40426 $
  */
 
 #ifndef _STRING
@@ -15,6 +15,8 @@
 #define S String()
 #define M_STR(str) #str
 #define MSTR(str) M_STR(str)
+
+class JSON;
 
 class String : public Base {
 private:
@@ -27,7 +29,6 @@ private:
 public:
 	String();
 	String(const char *rhs);
-	String(const Matrix<char>& rhs);
 	String(const String &rhs);
 	String(String &&rhs);
 	String(char rhs);
@@ -44,11 +45,13 @@ public:
 	String(double rhs);
 	String(const void *rhs);
 	String(File rhs);
+	String(const JSON&  rhs);
 	String(const Array<String>& rhs);
+	void add_memory(void* data, size_t len);
+	void getURL(const String& URL, const String& source);
 	const String& operator= (const String &rhs);
 	const String& operator= (String &&rhs);
 	const String& operator= (const Array<String>& rhs);
-	const String& operator= (const Matrix<char>& rhs);
 	const String& operator= (char *rhs);
 	const String& operator= (const char *rhs);
 	const String& operator= (bool rhs);
@@ -58,6 +61,7 @@ public:
 	const String& operator= (double rhs);
 	const String& operator= (const void *rhs);
 	const String& operator= (File rhs);
+	const String& operator= (const JSON& rhs);
 	template <class T>
 	const String& operator=(const T &rhs);
 	const String& join (const Array<String>& rhs, const String &bind);
@@ -67,10 +71,8 @@ public:
 	const uint32_t *u_str();
 	~String();
 	bool operator== (const String &rhs) const;
-	bool operator== (const Matrix<char>& rhs) const;
 	bool operator== (const char *rhs) const;
 	bool operator!= (const String &rhs) const;
-	bool operator!= (const Matrix<char>& rhs) const;
 	bool operator!= (const char *rhs) const;
 	template <class T>
 	String operator+(const T &rhs) const;
@@ -84,7 +86,6 @@ public:
 	bool operator>= (const String &rhs) const;
 	String& operator+=(const String &rhs);
 	String& operator+=(String &&rhs);
-	String& operator+=(const Matrix<char>& rhs);
 	String& operator+=(const Array<String>& rhs);
 	String& operator+=(const char *rhs);
 	String& operator+=(bool rhs);
@@ -117,12 +118,16 @@ public:
 	String cut(size_t begin, ssize_t end = -1) const;
 	String u_cut(size_t begin, ssize_t end = -1) const;
 	Array<String> split(String delim) const;
+	Array<String> split(String delim, int64_t len) const;
 	Array<String> strsplit(String delim) const;
 	Array<String> CSVsplit() const;
+	Array<String> linesplit() const;
 	long long getll() const;
 	double getd() const;
-	//String re_subst(const String& re);
-	//bool re_comp(const String& re) const;
+#if 0
+	String re_subst(const String& re);
+	bool re_comp(const String& re) const;
+#endif
 	String printf(String format, ...);
 	bool is_numeric();
 	void reverse();
@@ -135,7 +140,6 @@ public:
 	size_t end() const;
 	const char& operator[](const size_t i) const;
 	char& operator[](const size_t i);
-	//const String& convert(const String& from, const String& to);
 	bool test_utf() const;
 };
 

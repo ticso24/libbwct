@@ -24,6 +24,8 @@ include_HEADERS =	bwct/base.h \
 			bwct/network.h \
 			bwct/json.h \
 			bwct/aarray.h \
+			bwct/sarray.h \
+			bwct/array.h \
 			bwct/compress.h
 libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/tool.cc \
@@ -33,6 +35,9 @@ libbwct_a_SOURCES =	bwct/thread.cc \
 			bwct/network.cc \
 			bwct/json.cc \
 			bwct/aarray.cc \
+			bwct/sarray.cc \
+			bwct/array.cc \
+			bwct/ssl.cc \
 			bwct/compress.cc
 m4datadir =		$(datadir)/aclocal
 m4data_DATA =		libbwct.m4
