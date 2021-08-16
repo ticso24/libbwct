@@ -58,7 +58,7 @@ AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS(fcntl.h limits.h strings.h sys/ioctl.h sys/time.h syslog.h)
 AC_CHECK_HEADERS(unistd.h fts.h err.h netdb.h sys/mtio.h)
-AC_CHECK_HEADERS(sys/gentape.h sys/device.h sys/tprintf.h sys/buf.h sgtty.h)
+AC_CHECK_HEADERS(sys/gentape.h sys/device.h sys/tprintf.h sgtty.h)
 AC_CHECK_HEADERS(termios.h)
 AC_CHECK_HEADERS(sys/io/trioctl.h sys/tape.h sys/chio.h)
 AC_CHECK_HEADERS(zlib.h bzlib.h)
