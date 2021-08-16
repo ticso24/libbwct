@@ -50,6 +50,7 @@ AC_CHECK_LIB(socket, main)
 AC_CHECK_LIB(nsl, main)
 AC_CHECK_LIB(z, main)
 AC_CHECK_LIB(bz2, main)
+AC_CHECK_LIB(crypt, main)
 
 dnl Checks for header files.
 AC_HEADER_DIRENT
