@@ -19,3 +19,4 @@ config.status
 libbwct-config
 libbwct.a
 libbwct-*.tar.gz
+bwct/config.h.in~
