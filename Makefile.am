@@ -14,6 +14,7 @@ EXTRA_DIST =		INSTALL \
 			libbwct.m4
 lib_LIBRARIES =		libbwct.a
 include_HEADERS =	bwct/base.h \
+			bwct/config.h \
 			bwct/bwct.h \
 			bwct/thread.h \
 			bwct/tool.h \
