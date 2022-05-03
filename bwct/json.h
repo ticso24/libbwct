@@ -22,8 +22,7 @@ class JSON;
 class JSON : public Base {
 public:
 	enum class Type {
-		undefined = 0,	// object is invalid
-		null,		// no storage
+		null = 0,	// no storage
 		string,
 		object,		// aaray of subnodes
 		number,		// use string container and let caller decide wether frac, int, ...
@@ -89,6 +88,7 @@ public:
 	JSON& operator[](int64_t rh);
 	const JSON& operator[](int64_t rh) const;
 	operator bool() const;
+	const JSON& query(const String& q) const;
 	bool is_null() const;
 	bool is_string() const;
 	bool is_object() const;

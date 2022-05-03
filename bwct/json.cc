@@ -16,7 +16,7 @@ JSON::JSON()
 	str = NULL;
 	array = NULL;
 	aarray = NULL;
-	type = Type::undefined;
+	type = Type::null;
 }
 
 JSON::JSON(const JSON& rh)
@@ -44,7 +44,6 @@ JSON::JSON(const JSON& rh)
 		*aarray = *rh.aarray;
 		break;
 	case Type::null:
-	case Type::undefined:
 		break;
 	}
 }
@@ -74,7 +73,6 @@ JSON::JSON(JSON&& rh)
 		rh.aarray = NULL;
 		break;
 	case Type::null:
-	case Type::undefined:
 		break;
 	}
 }
@@ -376,7 +374,7 @@ JSON::iparse(const String& json, int64_t& parserpos)
 void
 JSON::clear()
 {
-	type = Type::undefined;
+	type = Type::null;
 	delete str;
 	str = NULL;
 	delete array;
@@ -480,8 +478,6 @@ JSON::int_generate(Array<String>& data, bool formated, int level) const
 		space = " ";
 	}
 	switch(type) {
-	case Type::undefined:
-		TError("undefined Object");
 	case Type::null:
 		data << S + "null";
 		break;
@@ -551,7 +547,6 @@ JSON::operator=(const JSON& rh)
 		*aarray = *rh.aarray;
 		break;
 	case Type::null:
-	case Type::undefined:
 		break;
 	}
 	return *this;
@@ -577,7 +572,6 @@ JSON::operator=(JSON&& rh)
 		std::swap(aarray, rh.aarray);
 		break;
 	case Type::null:
-	case Type::undefined:
 		break;
 	}
 	return *this;
@@ -828,6 +822,14 @@ JSON::get_object() const
 {
 	cassertm(type == Type::object, reinterpret_cast<const char*>(type));
 	return *aarray;
+}
+
+const JSON&
+JSON::query(const String& q) const
+{
+	//const JSON& res;
+
+	return JSON();
 }
 
 bool
