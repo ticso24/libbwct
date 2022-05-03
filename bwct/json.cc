@@ -827,9 +827,10 @@ JSON::get_object() const
 Array<JSON>
 JSON::query(const String& q) const
 {
+	Array<JSON> ret;
 	//const JSON& res;
 
-	return JSON();
+	return ret;
 }
 
 bool
