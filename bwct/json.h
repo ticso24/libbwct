@@ -88,7 +88,7 @@ public:
 	JSON& operator[](int64_t rh);
 	const JSON& operator[](int64_t rh) const;
 	operator bool() const;
-	const JSON& query(const String& q) const;
+	Array<JSON> query(const String& q) const;
 	bool is_null() const;
 	bool is_string() const;
 	bool is_object() const;

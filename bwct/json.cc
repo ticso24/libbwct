@@ -824,7 +824,7 @@ JSON::get_object() const
 	return *aarray;
 }
 
-const JSON&
+Array<JSON>
 JSON::query(const String& q) const
 {
 	//const JSON& res;
