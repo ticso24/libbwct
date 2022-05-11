@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/array.h $
- * $Date: 2021-08-13 12:57:59 +0200 (Fri, 13 Aug 2021) $
+ * $Date: 2022-05-11 00:54:26 +0200 (Wed, 11 May 2022) $
  * $Author: ticso $
- * $Rev: 44740 $
+ * $Rev: 45533 $
  */
 
 #ifndef _ARRAY
@@ -22,6 +22,45 @@ protected:
 	T **elements;
 	void setsize(const int i);
 public:
+	struct Iterator {
+		using iterator_category = std::forward_iterator_tag;
+		using reference         = T&;
+
+		Iterator(Array<T>* ref, int64_t num) {
+			a = ref;
+			pos = num;
+		}
+
+		reference operator*() const {
+			return (*a)[pos];
+		}
+		Iterator& operator++() {
+			pos++;
+			return *this;
+		}
+		Iterator operator++(int) {
+			Iterator tmp = *this;
+			++(*this);
+			return tmp;
+		}
+		friend bool operator== (const Iterator& a, const Iterator& b) {
+			return a.pos == b.pos;
+		}
+		friend bool operator!= (const Iterator& a, const Iterator& b) {
+			return a.pos != b.pos;
+		}
+
+	private:
+		Array<T>* a;
+		int64_t pos;
+	};
+
+	Iterator begin() {
+		return Iterator(this, 0);
+	}
+	Iterator end() {
+		return Iterator(this, max + 1);
+	}
 	int max;
 	Array();
 	Array(const Array &src);
@@ -72,7 +111,12 @@ Array<T>::Array(const Array &src) : Base()
 	max = -1;
 	num_elem = 0;
 	elements = NULL;
-	*this = src;
+	try {
+		*this = src;
+	} catch (...) {
+		empty();
+		throw;
+	}
 }
 
 template <class T>

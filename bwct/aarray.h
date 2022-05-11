@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/aarray.h $
- * $Date: 2021-07-14 19:42:48 +0200 (Wed, 14 Jul 2021) $
+ * $Date: 2022-05-11 00:54:26 +0200 (Wed, 11 May 2022) $
  * $Author: ticso $
- * $Rev: 44522 $
+ * $Rev: 45533 $
  */
 
 #ifndef _AARRAY
@@ -37,6 +37,62 @@ private:
 	int getbucket(uint32_t h) const;
 
 public:
+#if 0
+	struct Iterator {
+		using iterator_category = std::forward_iterator_tag;
+
+		Iterator(AArray<T>* ref, Elem* elem, int bucket) {
+			a = ref;
+			e = elem;
+			b = bucket;
+		}
+
+		struct retVals {
+			String& key;
+			T& data;
+		};
+		retVals operator*() const {
+			return retVals{e->key, *(e->data)};
+		}
+		Iterator& operator++() {
+			e = e->next;
+			while (e == NULL) {
+				b++;
+				if (b >= a->buckets) {
+					return *this;
+				}
+			}
+			return *this;
+		}
+		Iterator operator++(int) {
+			Iterator tmp = *this;
+			++(*this);
+			return tmp;
+		}
+		friend bool operator== (const Iterator& a, const Iterator& b) {
+			return a.elem == b.elem;
+		}
+		friend bool operator!= (const Iterator& a, const Iterator& b) {
+			return a.elem != b.elem;
+		}
+
+	private:
+		AArray<T>* a;
+		Elem* e;
+		int b;
+	};
+
+	Iterator begin() {
+		if (elems == NULL) {
+			return Iterator(this, NULL, buckets);
+		}
+		return Iterator(this, elems[0], 0);
+	}
+	Iterator end() {
+		return Iterator(this, NULL, buckets);
+	}
+#endif
+
 	AArray(int buckets = 4);
 	AArray(AArray<T>&& src);
 	AArray(const AArray<T>& src);
@@ -66,7 +122,7 @@ AArray<T>::~AArray()
 {
 	if (elems != NULL) {
 		empty();
-		delete elems;
+		delete[] elems;
 		elems = NULL;
 	}
 }
@@ -84,25 +140,31 @@ AArray<T>::AArray(const AArray<T>& src)
 {
 	buckets = src.buckets;
 	elems = NULL;
-	elems = new Elem*[buckets];
-	bzero(elems, sizeof(Elem*) * buckets);
-	for (int i = 0; i < buckets; i++) {
-		if (src.elems[i] != NULL) {
-			elems[i] = new Elem;
-			elems[i]->key = src.elems[i]->key;
-			elems[i]->data = new T;
-			*elems[i]->data = *src.elems[i]->data;
-			Elem** ep = &elems[i];
-			Elem* se = src.elems[i]->next;
-			while (se != NULL) {
-				(*ep)->next = new Elem;
-				(*ep)->next->key = se->key;
-				(*ep)->next->data = new T;
-				*(*ep)->next->data = *se->data;
-				ep = &(*ep)->next;
-				se = se->next;
+
+	try {
+		elems = new Elem*[buckets];
+		bzero(elems, sizeof(Elem*) * buckets);
+		for (int i = 0; i < buckets; i++) {
+			if (src.elems[i] != NULL) {
+				elems[i] = new Elem;
+				elems[i]->key = src.elems[i]->key;
+				elems[i]->data = new T;
+				*elems[i]->data = *src.elems[i]->data;
+				Elem** ep = &elems[i];
+				Elem* se = src.elems[i]->next;
+				while (se != NULL) {
+					(*ep)->next = new Elem;
+					(*ep)->next->key = se->key;
+					(*ep)->next->data = new T;
+					*(*ep)->next->data = *se->data;
+					ep = &(*ep)->next;
+					se = se->next;
+				}
 			}
 		}
+	} catch(...) {
+		empty();
+		throw;
 	}
 }
 
@@ -111,7 +173,7 @@ const AArray<T>&
 AArray<T>::operator=(AArray<T>&& rhs)
 {
 	empty();
-	delete elems;
+	delete[] elems;
 	elems = NULL;
 
 	buckets = rhs.buckets;
@@ -127,7 +189,7 @@ AArray<T>::operator=(const AArray<T>& rhs)
 {
 	empty();
 	buckets = rhs.buckets;
-	delete elems;
+	delete[] elems;
 	elems = NULL;
 	elems = new Elem*[buckets];
 	bzero(elems, sizeof(Elem*) * buckets);
