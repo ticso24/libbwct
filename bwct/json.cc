@@ -25,26 +25,31 @@ JSON::JSON(const JSON& rh)
 	array = NULL;
 	aarray = NULL;
 
-	type = rh.type;
-	switch(type) {
-	case Type::string:
-	case Type::number:
-		str = new String;
-		*str = *rh.str;
-		break;
-	case Type::boolean:
-		bool_state = rh.bool_state;
-		break;
-	case Type::array:
-		array = new Array<JSON>;
-		*array = *rh.array;
-		break;
-	case Type::object:
-		aarray = new AArray<JSON>;
-		*aarray = *rh.aarray;
-		break;
-	case Type::null:
-		break;
+	try {
+		type = rh.type;
+		switch(type) {
+		case Type::string:
+		case Type::number:
+			str = new String;
+			*str = *rh.str;
+			break;
+		case Type::boolean:
+			bool_state = rh.bool_state;
+			break;
+		case Type::array:
+			array = new Array<JSON>;
+			*array = *rh.array;
+			break;
+		case Type::object:
+			aarray = new AArray<JSON>;
+			*aarray = *rh.aarray;
+			break;
+		case Type::null:
+			break;
+		}
+	} catch (...) {
+		clear();
+		throw;
 	}
 }
 
