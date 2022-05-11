@@ -825,10 +825,97 @@ JSON::get_object() const
 }
 
 Array<JSON>
+JSON::int_query(String q) const
+{
+	Array<JSON> ret;
+	//const JSON& res;
+
+	if (q.empty()) {
+		ret << *this;
+		return ret;
+	}
+
+	switch(q.c_str()[0]) {
+	case '.':
+		{
+			// find until next '[' or '.'
+			String part;
+			char tmp[] = {'\0', '\0'};
+			int pos;
+			for (pos = 0; pos < q.length(); pos++) {
+				if (q.c_str()[pos] == '.') {
+					break;
+				}
+				if (q.c_str()[pos] == '[') {
+					break;
+				}
+				tmp[0] = q.c_str()[pos];
+				part += tmp;
+			}
+
+			String remain;
+			remain = &(q.c_str()[pos]);
+			ret << (*this)[part].int_query(remain);
+		}
+		break;
+	case '[':
+		{
+			// find until next ']'
+			String part;
+			char tmp[] = {'\0', '\0'};
+			int pos;
+			bool found = false;
+			for (pos = 0; pos < q.length(); pos++) {
+				if (q.c_str()[pos] == ']') {
+					found = true;
+					break;
+				}
+				tmp[0] = q.c_str()[pos];
+				part += tmp;
+			}
+			if (!found) {
+				TError("missing ']' in query string");
+			}
+			{
+				String remain;
+				remain = &(q.c_str()[pos]);
+				// check if quoted
+				if (remain.c_str()[0] == '\'') {
+					// remove quotes
+					if (remain.c_str()[remain.length()] != '\'') {
+						TError("missing end of string");
+					}
+					remain = remain.cut(1, remain.length() - 1);
+					ret << (*this)[part].int_query(remain);
+				} else {
+					// assume numeric
+					int64_t num = remain.getll();
+					ret << (*this)[num].int_query(remain);
+				}
+			}
+		}
+		break;
+	default:
+		TError("invalid query string");
+	}
+
+	return ret;
+}
+
+Array<JSON>
 JSON::query(const String& q) const
 {
 	Array<JSON> ret;
 	//const JSON& res;
+
+	if (q.c_str()[0] != '$') {
+		TError("JSONPATH doesn't start with an '$'");
+	}
+
+	String iq;
+	iq = &(q.c_str()[1]);
+
+	ret = int_query(iq);
 
 	return ret;
 }

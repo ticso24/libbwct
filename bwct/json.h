@@ -44,6 +44,7 @@ private:
 
 	static String ESC(const String& val);
 	void int_generate(Array<String>& data, bool formated, int level) const;
+	Array<JSON> int_query(String q) const;
 
 public:
 	JSON();
