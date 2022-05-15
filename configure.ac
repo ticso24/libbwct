@@ -10,9 +10,9 @@
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([libbwct],[0.19],[bernd@bwct.de])
+AC_INIT([libbwct],[0.20],[bernd@bwct.de])
 AC_CONFIG_SRCDIR(bwct/bwct.h)
-AM_INIT_AUTOMAKE(libbwct, 0.19)
+AM_INIT_AUTOMAKE(libbwct, 0.20)
 AM_CONFIG_HEADER(bwct/config.h)
 
 AC_AIX
