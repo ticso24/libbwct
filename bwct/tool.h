@@ -12,6 +12,8 @@
 #ifndef _TOOL
 #define _TOOL
 
+#include <utility>
+
 class Base;
 class String;
 class Mutex;

@@ -22,45 +22,6 @@ protected:
 	T **elements;
 	void setsize(const int i);
 public:
-	struct Iterator {
-		using iterator_category = std::forward_iterator_tag;
-		using reference         = T&;
-
-		Iterator(Array<T>* ref, int64_t num) {
-			a = ref;
-			pos = num;
-		}
-
-		reference operator*() const {
-			return (*a)[pos];
-		}
-		Iterator& operator++() {
-			pos++;
-			return *this;
-		}
-		Iterator operator++(int) {
-			Iterator tmp = *this;
-			++(*this);
-			return tmp;
-		}
-		friend bool operator== (const Iterator& a, const Iterator& b) {
-			return a.pos == b.pos;
-		}
-		friend bool operator!= (const Iterator& a, const Iterator& b) {
-			return a.pos != b.pos;
-		}
-
-	private:
-		Array<T>* a;
-		int64_t pos;
-	};
-
-	Iterator begin() {
-		return Iterator(this, 0);
-	}
-	Iterator end() {
-		return Iterator(this, max + 1);
-	}
 	int max;
 	Array();
 	Array(const Array &src);

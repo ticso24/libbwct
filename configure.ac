@@ -32,7 +32,7 @@ AC_DEFINE(_LARGEFILE64_SOURCE, 1, [access to files greater than 2Gb in Solaris])
 AC_DEFINE(_USE_LARGEFILE64, 1, [access to files greater than 2Gb in Linux])
 AC_DEFINE(_LARGE_FILE_API, 1, [access to files greater than 2Gb in AIX])
 
-CXXFLAGS="$CXXFLAGS $CB_CFLAGS"
+CXXFLAGS="$CXXFLAGS $CB_CFLAGS -std=gnu++11"
 XCXXFLAGS="$CB_CFLAGS"
 CFLAGS="$CFLAGS $CB_CFLAGS"
 
