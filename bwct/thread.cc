@@ -305,6 +305,72 @@ RW_Lock::trywrlock()
 	return pthread_rwlock_trywrlock(&rwlock);
 }
 
+RW_Lock::Guard::Guard(RW_Lock& nrw_lock)
+{
+	rw_lock = &nrw_lock;
+	locked = false;
+}
+
+bool
+RW_Lock::Guard::islocked()
+{
+	return locked;
+}
+
+RW_Lock::Guard::~Guard()
+{
+	if (locked)
+		rw_lock->unlock();
+}
+
+void
+RW_Lock::Guard::rdlock()
+{
+	cassert (!locked);
+	rw_lock->rdlock();
+	locked = true;
+}
+
+void
+RW_Lock::Guard::wrlock()
+{
+	cassert (!locked);
+	rw_lock->wrlock();
+	locked = true;
+}
+
+int
+RW_Lock::Guard::tryrdlock()
+{
+	int ret;
+	cassert (!locked);
+	ret = rw_lock->tryrdlock();
+	if (ret == 0) {
+		locked = true;
+	}
+	return ret;
+}
+
+int
+RW_Lock::Guard::trywrlock()
+{
+	int ret;
+	cassert (!locked);
+	ret = rw_lock->trywrlock();
+	if (ret == 0) {
+		locked = true;
+	}
+	return ret;
+}
+
+void
+RW_Lock::Guard::unlock()
+{
+	cassert (locked == 1);
+	rw_lock->unlock();
+	locked = false;
+}
+
 cyclic::cyclic(uint64_t nperiod)
 {
 	period = nperiod;

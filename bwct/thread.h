@@ -92,6 +92,20 @@ private:
 // clang++: error: private field 'attr' is not used [-Werror,-Wunused-private-field]
 //	pthread_rwlockattr_t attr;
 public:
+	class Guard : public Base {
+	private:
+		RW_Lock *rw_lock;
+		bool locked;
+	public:
+		Guard(RW_Lock& nrw_lock);
+		~Guard();
+		void rdlock();
+		void wrlock();
+		int tryrdlock();
+		int trywrlock();
+		void unlock();
+		bool islocked();
+	};
 	RW_Lock();
 	~RW_Lock();
 	void rdlock();
