@@ -54,6 +54,7 @@ public:
 
 	void parse(const String& json);
 	String generate(bool newline = false) const;
+	void create_table(AArray<JSON>& data, String path) const;
 
 	const JSON& operator=(const JSON& rh);
 	const JSON& operator=(JSON&& rh);

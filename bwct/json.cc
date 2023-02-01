@@ -467,6 +467,34 @@ JSON::generate(bool formated) const
 }
 
 void
+JSON::create_table(AArray<JSON>& data, String path) const
+{
+	switch(type) {
+	case Type::null:
+	case Type::string:
+	case Type::number:
+	case Type::boolean:
+		data[path] = *this;
+		break;
+	case Type::object:
+		{
+			Array<String> keys = aarray->getkeys(true);
+			for (int i = 0; i <= keys.max; i++) {
+				String subpath = path + "[\"" + keys[i] + "\"]";
+				(*aarray)[keys[i]].create_table(data, subpath);
+			}
+		}
+		break;
+	case Type::array:
+		for (int i = 0; i <= array->max; i++) {
+			String subpath = path + "[" + i + "]";
+			(*array)[i].create_table(data, subpath);
+		}
+		break;
+	}
+}
+
+void
 JSON::int_generate(Array<String>& data, bool formated, int level) const
 {
 	String nl;
