@@ -24,7 +24,7 @@ namespace bwct
 
 namespace bwct
 {
-class Thread : public Base {
+	class Thread : public Base {
 	protected:
 		~Thread();
 		void *retvalue;

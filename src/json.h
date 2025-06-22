@@ -4,15 +4,14 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/json.h $
- * $Date: 2025-05-26 13:11:59 +0200 (Mon, 26 May 2025) $
+ * $Date: 2025-06-22 18:40:52 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49280 $
+ * $Rev: 49411 $
  */
 
 #ifndef _JSON
 #define _JSON
 
-#include "db.h"
 #include "tool.h"
 #include "aarray.h"
 #include "array.h"
@@ -27,6 +26,7 @@
 
 namespace bwct
 {
+
 	class JSON;
 
 	class JSON {
@@ -153,6 +153,7 @@ namespace bwct
 		Type get_type() const noexcept;
 		String tinfo() const;
 	};
+
 }
 
 #endif /* !_JSON */

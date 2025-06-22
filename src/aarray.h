@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/aarray.h $
- * $Date: 2025-06-10 19:26:00 +0200 (Tue, 10 Jun 2025) $
+ * $Date: 2025-06-22 17:45:31 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49347 $
+ * $Rev: 49408 $
  */
 
 #ifndef _AARRAY
@@ -165,6 +165,8 @@ namespace bwct
 		iterator erase(iterator first, iterator last);
 		iterator erase(const_iterator first, const_iterator last);
 		bool empty() noexcept;
+		T& at(const K& key);
+		const T& at(const K& key) const;
 		T& operator[](const K& key);
 		const T& operator[](const K& key) const;
 		const AArray<T, K, buckets>& operator=(const AArray<T, K, buckets>& rhs);
@@ -567,6 +569,48 @@ namespace bwct
 
 	template <class T, class K, size_t buckets>
 	T&
+	AArray<T, K, buckets>::at(const K& key)
+	{
+		auto h = std::hash<K>{}(key);
+		int bucket = getbucket(h);
+
+		Elem* e = elems[bucket];
+		while (e != NULL) {
+			if (e->data.first == key) {
+				break;
+			}
+			e = e->next;
+		}
+		if (e == NULL) {
+			TError(String() + "key " + key + " does not exist");
+		}
+
+		return e->data.second;
+	}
+
+	template <class T, class K, size_t buckets>
+	const T&
+	AArray<T, K, buckets>::at(const K& key) const
+	{
+		auto h = std::hash<K>{}(key);
+		int bucket = getbucket(h);
+
+		Elem* e = elems[bucket];
+		while (e != NULL) {
+			if (e->data.first == key) {
+				break;
+			}
+			e = e->next;
+		}
+		if (e == NULL) {
+			TError(String() + "key " + key + " does not exist");
+		}
+
+		return e->data.second;
+	}
+
+	template <class T, class K, size_t buckets>
+	T&
 	AArray<T, K, buckets>::operator[](const K& key)
 	{
 		auto h = std::hash<K>{}(key);
@@ -716,7 +760,7 @@ namespace bwct
 					e->next->data = std::move(value);
 					break;
 				}
-			e = e->next;
+				e = e->next;
 			}
 		}
 

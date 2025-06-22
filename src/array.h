@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/array.h $
- * $Date: 2025-06-10 19:26:00 +0200 (Tue, 10 Jun 2025) $
+ * $Date: 2025-06-11 00:52:02 +0200 (Wed, 11 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49347 $
+ * $Rev: 49350 $
  */
 
 #ifndef _ARRAY
@@ -17,6 +17,7 @@
 
 namespace bwct
 {
+
 	template <class T>
 	class Array {
 	private:
@@ -192,6 +193,8 @@ namespace bwct
 		const Array<T>& operator=(const Array &lh);
 		const Array<T>& operator=(Array &&lh) noexcept;
 		const Array<T>& operator=(std::initializer_list<T> ilist);
+		T& at(const int i);
+		const T& at(const int i) const;
 		T& operator[](const int i);
 		const T& operator[](const int i) const;
 		void push_back(const T &rh);
@@ -601,6 +604,33 @@ namespace bwct
 
 	template <class T>
 	const T&
+	Array<T>::at(int i) const {
+
+		cassert(i >= 0);
+		cassert(i <= max);
+		Array<T> *me = const_cast<Array<T>*>(this);
+		if (!elements[i]) {
+			TError(S + "index " + i + "out of range");
+		}
+		return *me->elements[i];
+	};
+
+	template <class T>
+	T&
+	Array<T>::at(int i) {
+		cassert(i >= 0);
+		if (i > max) {
+			setsize(i);
+			max = i;
+		}
+		if (!elements[i]) {
+			TError(S + "index " + i + "out of range");
+		}
+		return *elements[i];
+	};
+
+	template <class T>
+	const T&
 	Array<T>::operator[](int i) const {
 
 		cassert(i >= 0);
@@ -803,4 +833,5 @@ namespace bwct
 	extern template class Array<String>;
 
 }
+
 #endif /* !_ARRAY */

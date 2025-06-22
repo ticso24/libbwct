@@ -4,11 +4,12 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/ssl.cc $
- * $Date: 2025-06-08 14:27:14 +0200 (Sun, 08 Jun 2025) $
+ * $Date: 2025-06-22 18:40:52 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49327 $
+ * $Rev: 49411 $
  */
 
+#include "base.h"
 #ifdef HAVE_OPENSSL
 #include "bwct.h"
 #include <openssl/dh.h>
@@ -54,7 +55,7 @@ namespace bwct
 		x509 = NULL;
 	}
 
-	CSSL::Network::Network(int nfd, Context *sc) : ::Network::Net(nfd) {
+	CSSL::Network::Network(int nfd, Context *sc) : bwct::Network::Net(nfd) {
 		(this)->sc = sc;
 		ssl = NULL;
 		x509 = NULL;
@@ -72,7 +73,7 @@ namespace bwct
 	ssize_t
 	CSSL::Network::microread(void *vptr, size_t n) {
 		if (sc == NULL) {
-			return ::Network::Net::microread(vptr, n);
+			return bwct::Network::Net::microread(vptr, n);
 		}
 		ERR_clear_error();
 		return SSL_read(ssl, vptr, n);
@@ -81,7 +82,7 @@ namespace bwct
 	ssize_t
 	CSSL::Network::microwrite(const void *vptr, size_t n) {
 		if (sc == NULL) {
-			return ::Network::Net::microwrite(vptr, n);
+			return bwct::Network::Net::microwrite(vptr, n);
 		}
 		ERR_clear_error();
 		return SSL_write(ssl, vptr, n);
@@ -236,7 +237,7 @@ namespace bwct
 	ssize_t
 	CSSL::Network::sendfile(File &infile) {
 		if (sc == NULL) {
-			return ::Network::Net::sendfile(infile);
+			return bwct::Network::Net::sendfile(infile);
 		}
 		aa_ptr<char> buf;
 		ssize_t bytessend;
@@ -384,7 +385,7 @@ namespace bwct
 
 	void
 	CSSL::Network::connect_UDS(const String& path) {
-		::Network::Net::connect_UDS(path);
+		bwct::Network::Net::connect_UDS(path);
 		if (sc != NULL)
 			sconnect();
 	}
@@ -392,12 +393,12 @@ namespace bwct
 	void
 	CSSL::Network::connect_tcp(const String& name, const String& port,
 	    int family) {
-		::Network::Net::connect_tcp(name, port, family);
+		bwct::Network::Net::connect_tcp(name, port, family);
 		if (sc != NULL)
 			sconnect();
 	}
 
-	::Network::Net *
+	bwct::Network::Net *
 	CSSL::Listen::newcon(int clientfd) {
 		return new Network(clientfd);
 	}

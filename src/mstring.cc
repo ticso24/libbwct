@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/string.cc $
- * $Date: 2025-06-08 14:27:14 +0200 (Sun, 08 Jun 2025) $
+ * $Date: 2025-06-22 18:40:52 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49327 $
+ * $Rev: 49411 $
  */
 
 #include "bwct.h"
@@ -321,6 +321,7 @@ namespace bwct
 		data = NULL;
 		udata = NULL;
 		ln = 0;
+		buflen = directsize;
 		*this = rhs.get_str();
 	}
 
@@ -577,6 +578,40 @@ namespace bwct
 		}
 		ln = strlen(d);
 		return *this;
+	}
+
+	void
+	String::push_back(char c)
+	{
+		rebufsize(ln + 2);
+		auto p = get_data();
+		p[ln] = c;
+		p[ln + 1] = '\0';
+		++ln;
+	}
+
+	void
+	String::push_front(char c)
+	{
+		rebufsize(ln + 2);
+		auto p = get_data();
+		memmove(p + 1, p, ln + 1);
+		*p = c;
+	}
+
+	void
+	String::pop_front()
+	{
+		auto p = get_data();
+		memmove(p, p + 1, ln);
+		--ln;
+	}
+
+	void
+	String::pop_back()
+	{
+		get_data()[ln] = '\0';
+		--ln;
 	}
 
 	size_t
@@ -899,6 +934,20 @@ namespace bwct
 		return get_data()[i];
 	};
 
+	const char&
+	String::at(const size_t i) const
+	{
+		cassert(i <= ln);
+		return get_data()[i];
+	};
+
+	char&
+	String::at(const size_t i)
+	{
+		cassert(i <= ln);
+		return get_data()[i];
+	};
+
 	void
 	String::lower() noexcept
 	{
@@ -967,57 +1016,34 @@ namespace bwct
 
 		String ret;
 
-		char d[] = {0, '\0'};
-
 		for (ssize_t pos = begin; pos < end; pos++) {
 			if (ud[pos] <= 0x7f) {
-				d[0] = ud[pos];
-				ret += d;
+				ret.push_back(ud[pos]);
 			} else if (ud[pos] <= 0x07ff) {
-				d[0] = 0xc0 | ((ud[pos] >> 6) & 0x1f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 0) & 0x3f);
-				ret += d;
+				ret.push_back(0xc0 | ((ud[pos] >> 6) & 0x1f));
+				ret.push_back(0x80 | ((ud[pos] >> 0) & 0x3f));
 			} else if (ud[pos] <= 0xffff) {
-				d[0] = 0xe0 | ((ud[pos] >> 12) & 0x0f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 6) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 0) & 0x3f);
-				ret += d;
+				ret.push_back(0xe0 | ((ud[pos] >> 12) & 0x0f));
+				ret.push_back(0x80 | ((ud[pos] >> 6) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 0) & 0x3f));
 			} else if (ud[pos] <= 0x1fffff) {
-				d[0] = 0xf0 | ((ud[pos] >> 18) & 0x07);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 12) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 6) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 0) & 0x3f);
-				ret += d;
+				ret.push_back(0xf0 | ((ud[pos] >> 18) & 0x07));
+				ret.push_back(0x80 | ((ud[pos] >> 12) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 6) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 0) & 0x3f));
 			} else if (ud[pos] <= 0x3ffffff) {
-				d[0] = 0xf8 | ((ud[pos] >> 24) & 0x03);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 18) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 12) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 6) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 0) & 0x3f);
-				ret += d;
+				ret.push_back(0xf8 | ((ud[pos] >> 24) & 0x03));
+				ret.push_back(0x80 | ((ud[pos] >> 18) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 12) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 6) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 0) & 0x3f));
 			} else if (ud[pos] <= 0x7fffffff) {
-				d[0] = 0xfc | ((ud[pos] >> 30) & 0x01);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 24) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 18) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 12) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 6) & 0x3f);
-				ret += d;
-				d[0] = 0x80 | ((ud[pos] >> 0) & 0x3f);
-				ret += d;
+				ret.push_back(0xfc | ((ud[pos] >> 30) & 0x01));
+				ret.push_back(0x80 | ((ud[pos] >> 24) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 18) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 12) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 6) & 0x3f));
+				ret.push_back(0x80 | ((ud[pos] >> 0) & 0x3f));
 			}
 		}
 
@@ -1387,21 +1413,17 @@ namespace bwct
 			throw Error(String(error.get()));
 		}
 
-		char buf[2];
-		buf[1] = '\0';
 		const char *rp;
 		const char *wp;
 		VarPattern *pat;
 		if (pat->matches[0].rm_so > 0) {
 			for (int i = 0; i < pat->matches[0].rm_so; i++) {
-				buf[0] = wp[i];
-				ret += buf;
+				ret.push_back(wp[i]);
 			}
 		}
 		for (rp = rh.c_str(); *rp; rp++) {
 			if ((*rp == '\\') && ((rp[1] == '&') || (rp[1] == '\\'))) {
-				buf[0] = rp[1];
-				ret += buf;
+				ret.push_back(rp[i]);
 				rp++;
 
 			} else if ((*rp == '&') ||
@@ -1438,13 +1460,11 @@ namespace bwct
 
 				if (sublen > 0) {
 					for (int i = 0; i < sublen; i++) {
-						buf[0] = subbuf[i];
-						ret += buf;
+						ret.push_back(subbuf[i]);
 					}
 				}
 			} else {
-				buf[0] = *rp;
-				ret += buf;
+				ret.push_back(*rp);
 			}
 		}
 		wp += pat->matches[0].rm_eo;
@@ -1531,12 +1551,11 @@ namespace bwct
 	void
 	String::reverse()
 	{
-		char tmp[ln + 1];
+		String tmp;
 		for (int64_t i = ln - 1, j = 0; i >= 0; i--, j++) {
-			tmp[j] = get_data()[i];
+			tmp.push_back(get_data()[i]);
 		}
-		tmp[ln] = '\0';
-		strcpy(get_data(), tmp);
+		(*this) = std::move(tmp);
 	}
 
 	bool
@@ -1638,4 +1657,5 @@ namespace bwct
 		out.write(rh.get_data(), rh.ln);
 		return out;
 	}
+
 }

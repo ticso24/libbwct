@@ -14,8 +14,6 @@
 
 #include "config.h"
 
-#define WITH_VARIANT
-
 #include <sys/param.h>
 
 #include <sys/types.h>

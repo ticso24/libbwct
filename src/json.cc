@@ -4,15 +4,16 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/json.cc $
- * $Date: 2025-06-07 23:21:24 +0200 (Sat, 07 Jun 2025) $
+ * $Date: 2025-06-22 18:40:52 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49325 $
+ * $Rev: 49411 $
  */
 
 #include "bwct.h"
 
 namespace bwct
 {
+
 	JSON::JSON()
 	{
 #ifdef WITH_VARIANT
@@ -148,7 +149,6 @@ namespace bwct
 		const char* str = args.json.c_str();
 		String ret;
 		uint8_t c;
-		char tmp[2] = {'\0', '\0'};
 
 		while ((c = str[args.parserpos]) != '"') {
 			switch (c) {
@@ -160,8 +160,7 @@ namespace bwct
 				case '\\':
 				case '"':
 				case '/':
-					tmp[0] = c;
-					ret += tmp;
+					ret.push_back(c);
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
@@ -208,51 +207,40 @@ namespace bwct
 							args.columnnr += 1;
 						}
 						if (hval < 0x80) {
-							tmp[0] = hval & 0x7f;
-							ret += tmp;
+							ret.push_back(hval & 0x7f);
 						} else if (hval < 0x0800) {
-							tmp[0] = 0xc0 + ((hval >> 6) & 0x1f);
-							ret += tmp;
-							tmp[0] = 0x80 + (((hval >> 0) & 0x3f));
-							ret += tmp;
+							ret.push_back(0xc0 + ((hval >> 6) & 0x1f));
+							ret.push_back(0x80 + (((hval >> 0) & 0x3f)));
 						} else {
 							// we only handle up to 16bit, so this is the last one to handle
-							tmp[0] = 0xe0 + ((hval >> 12) & 0x1f);
-							ret += tmp;
-							tmp[0] = 0x80 + (((hval >> 6) & 0x3f));
-							ret += tmp;
-							tmp[0] = 0x80 + (((hval >> 0) & 0x3f));
-							ret += tmp;
+							ret.push_back(0xe0 + ((hval >> 12) & 0x1f));
+							ret.push_back(0x80 + (((hval >> 6) & 0x3f)));
+							ret.push_back(0x80 + (((hval >> 0) & 0x3f)));
 						}
 					}
 					break;
 				case 'b':
-					tmp[0] = 0x08;
-					ret += tmp;
+					ret.push_back(0x08);
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
 				case 'f':
-					tmp[0] = 0x0c;
-					ret += tmp;
+					ret.push_back(0x0c);
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
 				case 'n':
-					tmp[0] = '\n';
-					ret += tmp;
+					ret.push_back('\n');
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
 				case 'r':
-					tmp[0] = '\r';
-					ret += tmp;
+					ret.push_back('\r');
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
 				case 't':
-					tmp[0] = '\t';
-					ret += tmp;
+					ret.push_back('\t');
 					args.parserpos += 1;
 					args.columnnr += 1;
 					break;
@@ -261,8 +249,7 @@ namespace bwct
 				}
 				break;
 			default:
-				tmp[0] = c;
-				ret += tmp;
+				ret.push_back(c);
 				args.parserpos += 1;
 				args.columnnr += 1;
 				break;
@@ -419,7 +406,6 @@ namespace bwct
 #endif
 				bool cont = true;
 				String val;
-				char tmp[2] = {'\0', '\0'};
 				while (cont) {
 					uint8_t c = str[args.parserpos];
 					switch(c) {
@@ -443,8 +429,7 @@ namespace bwct
 						} else if ((val == "0" || val == "-0" || val == "+0") && !(c == '.' || c == 'e' || c == 'E')) { // numbers must not have leading zeros
 							TError(parseerrormsg("Not a number", args));
 						}
-						tmp[0] = c;
-						val += tmp;
+						val.push_back(c);
 						args.parserpos += 1;
 						args.columnnr += 1;
 						break;
@@ -526,11 +511,9 @@ namespace bwct
 	JSON::ESC(const String& val)
 	{
 		String ret;
-		char buf[2];
 		const char* plh;
 		uint8_t tmp;
 
-		buf[1] = '\0';
 		plh = val.c_str();
 		for (size_t i = 0; i < val.length(); i++) {
 			tmp = plh[i];
@@ -566,21 +549,18 @@ namespace bwct
 					ret += "\\u00";
 					nibble = tmp >> 4;
 					if (nibble > 9) {
-						buf[0] = 'a' + nibble - 10;
+						ret.push_back('a' + nibble - 10);
 					} else {
-						buf[0] = '0' + nibble;
+						ret.push_back('0' + nibble);
 					}
-					ret += buf;
 					nibble = tmp & 0xf;
 					if (nibble > 9) {
-						buf[0] = 'a' + nibble - 10;
+						ret.push_back('a' + nibble - 10);
 					} else {
-						buf[0] = '0' + nibble;
+						ret.push_back('0' + nibble);
 					}
-					ret += buf;
 				} else {
-					buf[0] = tmp;
-					ret += buf;
+					ret.push_back(tmp);
 				}
 			}
 		}
@@ -604,11 +584,11 @@ namespace bwct
 		String indent;
 		String indentx;
 		if (formated) {
-			char tmp[level + 1];
-			memset(tmp, '\t', level);
-			tmp[level] = '\0';
-			indent = tmp;
-			indentx = indent + "\t";
+			for (int i; i < level; ++i) {
+				indent.push_back('\t');
+			}
+			indentx = indent;
+			indentx.push_back('\t');
 		}
 #ifdef WITH_VARIANT
 		switch((Type)data.index()) {
@@ -1252,4 +1232,5 @@ namespace bwct
 		ret << "(" << typeid(*this).name() << "@" << this << ")";
 		return ret;
 	}
+
 }

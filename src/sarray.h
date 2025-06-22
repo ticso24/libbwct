@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/sarray.h $
- * $Date: 2025-06-10 19:26:00 +0200 (Tue, 10 Jun 2025) $
+ * $Date: 2025-06-19 13:44:28 +0200 (Thu, 19 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49347 $
+ * $Rev: 49395 $
  */
 
 #ifndef _SARRAY
@@ -16,6 +16,7 @@
 
 namespace bwct
 {
+
 	/* simplified array for scalar data types */
 	template <class T>
 	class SArray : public Base {
@@ -27,8 +28,6 @@ namespace bwct
 	public:
 		template <bool IsConst>
 		struct Iterator {
-		private:
-			T* pos;
 		public:
 			using iterator_category = std::random_access_iterator_tag;
 			using value_type      = typename std::conditional_t<IsConst, const T, T>;
@@ -38,6 +37,10 @@ namespace bwct
 
 			friend class SArray<T>;
 
+		private:
+			value_type* pos;
+
+		public:
 			Iterator(const Iterator&) = default;
 			Iterator& operator=(const Iterator&) = default;
 
@@ -50,7 +53,7 @@ namespace bwct
 				return (*this);
 			}
 
-			Iterator(T* rpos) {
+			Iterator(value_type* rpos) {
 				pos = rpos;
 			}
 
@@ -132,19 +135,19 @@ namespace bwct
 			return iterator(elements);
 		}
 		iterator end() {
-			return iterator(elements +  max + 1);
+			return iterator(elements + max + 1);
 		}
 		const_iterator begin() const {
 			return const_iterator(elements);
 		}
 		const_iterator end() const {
-			return const_iterator(elements +  max + 1);
+			return const_iterator(elements + max + 1);
 		}
 		const_iterator cbegin() const {
 			return const_iterator(elements);
 		}
 		const_iterator cend() const {
-			return const_iterator(elements +  max + 1);
+			return const_iterator(elements + max + 1);
 		}
 		auto rbegin() {
 			return std::make_reverse_iterator(iterator(&elements[max]));
@@ -185,9 +188,11 @@ namespace bwct
 		const SArray& operator= (const SArray &src);
 		const SArray& operator= (SArray &&src) noexcept;
 		const SArray<T>& operator=(std::initializer_list<T> ilist);
-		T& operator[](const int i);
 		T& operator<<(T rh);
 		T& operator<<(const SArray<T>& rh);
+		T& at(const int i);
+		const T& at(const int i) const;
+		T& operator[](const int i);
 		const T& operator[](const int i) const;
 		int getsize() noexcept;
 		T& getlast();
@@ -485,6 +490,26 @@ namespace bwct
 
 	template <class T>
 	const T&
+	SArray<T>::at(int i) const {
+		cassert(i >= 0);
+		cassert(i <= max);
+		return elements[i];
+	};
+
+	template <class T>
+	T&
+	SArray<T>::at(int i) {
+		cassert(i >= 0);
+		cassert(i <= max);
+		if (i > max) {
+			setsize(i);
+			max = i;
+		}
+		return elements[i];
+	};
+
+	template <class T>
+	const T&
 	SArray<T>::operator[](int i) const {
 		cassert(i >= 0);
 		cassert(i <= max);
@@ -494,7 +519,6 @@ namespace bwct
 	template <class T>
 	T&
 	SArray<T>::operator[](int i) {
-
 		cassert(i >= 0);
 		if (i > max) {
 			setsize(i);
@@ -547,6 +571,7 @@ namespace bwct
 		}
 		return -1;
 	}
+
 }
 
 #endif /* !_SARRAY */

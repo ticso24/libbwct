@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/string.h $
- * $Date: 2025-06-08 14:27:14 +0200 (Sun, 08 Jun 2025) $
+ * $Date: 2025-06-19 17:44:40 +0200 (Thu, 19 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49327 $
+ * $Rev: 49399 $
  */
 
 #ifndef _STRING
@@ -20,6 +20,7 @@
 
 namespace bwct
 {
+
 	class JSON;
 
 	class String {
@@ -38,6 +39,148 @@ namespace bwct
 		const char* get_data() const noexcept;
 		void free_data() noexcept;
 	public:
+		template <bool IsConst>
+		struct Iterator {
+		public:
+			using iterator_category = std::random_access_iterator_tag;
+			using value_type      = typename std::conditional_t<IsConst, const char, char>;
+			using reference         = value_type&;
+			using pointer           = value_type*;
+			using difference_type   = std::ptrdiff_t;
+
+			friend class String;
+
+		private:
+			value_type* pos;
+
+		public:
+			Iterator(const Iterator&) = default;
+			Iterator& operator=(const Iterator&) = default;
+
+			template<bool WasConst, class = std::enable_if_t<IsConst && !WasConst>>
+			Iterator(const Iterator<WasConst>& rhs) : pos(rhs.pos) {}
+
+			template<bool WasConst, class = std::enable_if_t<IsConst && !WasConst>>
+			Iterator& operator=(const Iterator<WasConst>& rhs) {
+				pos = rhs.pos;
+				return (*this);
+			}
+
+			Iterator(value_type* rpos) {
+				pos = rpos;
+			}
+
+			pointer operator->() const {
+				return pos;
+			}
+
+			reference operator*() const {
+				return *pos;
+			}
+
+			Iterator& operator--() {
+				--pos;
+				return *this;
+			}
+
+			Iterator operator--(int) {
+				Iterator tmp = *this;
+				--(*this);
+				return tmp;
+			}
+
+			Iterator& operator++() {
+				++pos;
+				return *this;
+			}
+
+			Iterator operator++(int) {
+				Iterator tmp = *this;
+				++(*this);
+				return tmp;
+			}
+
+			Iterator& operator+=(int a) {
+				pos += a;
+				return *this;
+			}
+
+			Iterator& operator-=(int a) {
+				pos -= a;
+				return *this;
+			}
+
+			reference operator[](int i) {
+				return pos[i];
+			}
+
+			friend Iterator operator+(Iterator a, int b) {
+				a += b;
+				return a;
+			}
+
+			friend Iterator operator-(Iterator a, int b) {
+				a -= b;
+				return a;
+			}
+
+			friend int operator-(const Iterator& a, const Iterator& b) {
+				return a.pos - b.pos;
+			}
+
+			friend bool operator< (const Iterator& a, const Iterator& b) {
+				return a.pos < b.pos;
+			}
+
+			friend bool operator== (const Iterator& a, const Iterator& b) {
+				return a.pos == b.pos;
+			}
+
+			friend bool operator!= (const Iterator& a, const Iterator& b) {
+				return a.pos != b.pos;
+			}
+		};
+
+		using iterator = Iterator<false>;
+		using const_iterator = Iterator<true>;
+
+		iterator begin() {
+			return iterator(get_data());
+		}
+		iterator end() {
+			return iterator(get_data() + ln + 1);
+		}
+		const_iterator begin() const {
+			return const_iterator(get_data());
+		}
+		const_iterator end() const {
+			return const_iterator(get_data() + ln + 1);
+		}
+		const_iterator cbegin() const {
+			return const_iterator(get_data());
+		}
+		const_iterator cend() const {
+			return const_iterator(get_data() + ln + 1);
+		}
+		auto rbegin() {
+			return std::make_reverse_iterator(iterator(&(get_data()[ln])));
+		}
+		auto rend() {
+			return std::make_reverse_iterator(iterator(&(get_data()[-1])));
+		}
+		auto rbegin() const {
+			return std::make_reverse_iterator(const_iterator(&(get_data()[ln])));
+		}
+		auto rend() const {
+			return std::make_reverse_iterator(const_iterator(&(get_data()[-1])));
+		}
+		auto crbegin() const {
+			return std::make_reverse_iterator(const_iterator(&(get_data()[ln])));
+		}
+		auto crend() const {
+			return std::make_reverse_iterator(const_iterator(&(get_data()[-1])));
+		}
+
 		String() noexcept;
 		String(const char *rhs);
 		String(const String &rhs);
@@ -146,6 +289,9 @@ namespace bwct
 		void reverse();
 		const char& operator[](const size_t i) const;
 		char& operator[](const size_t i);
+		const char& at(const size_t i) const;
+		char& at(const size_t i);
+		const String& convert(const String& from, const String& to);
 		bool test_utf() const;
 		SArray<uint8_t> hex_to_bytes() const;
 		String tinfo() const;
@@ -153,6 +299,10 @@ namespace bwct
 		void log(int priority, const char *str) const noexcept;
 		void log(const String& str) const noexcept;
 		void log(const char *str) const noexcept;
+		void push_back(char c);
+		void push_front(char c);
+		void pop_front();
+		void pop_back();
 		friend std::ostream& operator<< (std::ostream& out, const String& rh);
 	};
 
@@ -186,13 +336,13 @@ namespace bwct
 		return *this;
 	}
 
-	uint32_t crc_hash(const void *key, uint32_t len) noexcept;
+	constexpr uint32_t crc_hash(const char *key, uint32_t len) noexcept;
 }
 
 template<>
 struct std::hash<bwct::String>
 {
-	std::size_t operator()(const bwct::String& s) const noexcept
+	constexpr std::size_t operator()(const bwct::String& s) const noexcept
 	{
 		return bwct::crc_hash(s.c_str(), s.length());
 	}

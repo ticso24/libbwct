@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/network.cc $
- * $Date: 2025-06-08 19:43:47 +0200 (Sun, 08 Jun 2025) $
+ * $Date: 2025-06-22 18:40:52 +0200 (Sun, 22 Jun 2025) $
  * $Author: ticso $
- * $Rev: 49331 $
+ * $Rev: 49411 $
  */
 
 #include "bwct.h"
@@ -520,7 +520,7 @@ namespace bwct
 		// TODO: use kevent
 		cassert (lfds.max >= 0);
 		for (;;) {
-			struct pollfd pfd[lfds.max + 1];
+			std::unique_ptr<struct pollfd[]> pfd(new struct pollfd[lfds.max + 1]);
 			int res;
 			for (int i = 0; i <= lfds.max; i++) {
 				bzero(&pfd[i], sizeof(struct pollfd));
@@ -528,7 +528,7 @@ namespace bwct
 				pfd[i].events = POLLIN;
 			}
 			do {
-				res = poll(pfd, lfds.max + 1, INFTIM);
+				res = poll(pfd.get(), lfds.max + 1, INFTIM);
 			} while (res < 0);
 			for (int i = 0; i <= lfds.max; i++) {
 				if (pfd[i].revents) {
