@@ -141,6 +141,7 @@ tohex(char *data, int size)
 	return ret;
 }
 
+#ifdef HAVE_OPENSSL
 MD5_Hash
 getMD5(void* data, size_t length)
 {
@@ -162,6 +163,7 @@ getMD5(const String& data)
 	MD5_Final(hash.buf, &context);
 	return hash;
 }
+#endif /* OPENSSL */
 
 String
 get_strhash(MD5_Hash hash)
@@ -195,6 +197,7 @@ get_base64hash(MD5_Hash hash)
 	return base64_encode(hash.buf, MD5_DIGEST_LENGTH);
 }
 
+#ifdef HAVE_OPENSSL
 SHA1_Hash
 getSHA1(void* data, size_t length)
 {
@@ -216,6 +219,7 @@ getSHA1(const String& data)
 	SHA1_Final(hash.buf, &context);
 	return hash;
 }
+#endif /* HAVE_OPENSSL */
 
 String
 get_base64hash(SHA1_Hash hash)
@@ -249,6 +253,7 @@ get_strhash(SHA1_Hash hash)
 	return ret;
 }
 
+#ifdef HAVE_OPENSSL
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 String
 get_strhmac256(const String& key, const String& data)
@@ -304,6 +309,7 @@ get_strhmac256(const String& key, const String& data)
 	return ret;
 }
 #endif
+#endif /* HAVE_OPENSSL */
 
 uint64_t
 gettimesec(void)
