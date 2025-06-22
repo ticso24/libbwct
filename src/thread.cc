@@ -9,7 +9,7 @@
  * $Rev: 42224 $
  */
 
-#include <bwct/bwct.h>
+#include "bwct.h"
 
 Thread::Thread()
 {

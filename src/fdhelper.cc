@@ -229,19 +229,11 @@ File::flush () {
 
 void
 File::open(const String& path, int flags, int mode) {
-#if HAVE_OPEN64
-	if (flags & O_CREAT) {
-		fd = ::open64(path.c_str(), flags | O_LARGEFILE, mode);
-	} else {
-		fd = ::open64(path.c_str(), flags | O_LARGEFILE);
-	}
-#else
 	if (flags & O_CREAT) {
 		fd = ::open(path.c_str(), flags, mode);
 	} else {
 		fd = ::open(path.c_str(), flags);
 	}
-#endif
 	if (fd >= 0)
 		filename = path;
 	else {
@@ -383,11 +375,7 @@ Stat::~Stat() {
 }
 
 void
-#if HAVE_OPEN64
-Stat::init(const struct stat64 *sp) {
-#else
 Stat::init(const struct stat *sp) {
-#endif
 	s.dev = sp->st_dev;
 	s.ino = sp->st_ino;
 	s.mode = sp->st_mode;
@@ -422,13 +410,8 @@ Stat::init(const struct stat *sp) {
 int
 Stat::stat(const String& path) {
 	int ret;
-#if HAVE_OPEN64
-	struct stat64 st;
-	ret = ::stat64(path.c_str(), &st);
-#else
 	struct stat st;
 	ret = ::stat(path.c_str(), &st);
-#endif
 	init(&st);
 	return ret;
 }
@@ -436,13 +419,8 @@ Stat::stat(const String& path) {
 int
 Stat::lstat(const String& path) {
 	int ret;
-#if HAVE_OPEN64
-	struct stat64 st;
-	ret = ::lstat64(path.c_str(), &st);
-#else
 	struct stat st;
 	ret = ::lstat(path.c_str(), &st);
-#endif
 	init(&st);
 	return ret;
 }
@@ -450,13 +428,8 @@ Stat::lstat(const String& path) {
 int
 Stat::fstat(int fd) {
 	int ret;
-#if HAVE_OPEN64
-	struct stat64 st;
-	ret = ::fstat64(fd, &st);
-#else
 	struct stat st;
 	ret = ::fstat(fd, &st);
-#endif
 	init(&st);
 	return ret;
 }
@@ -477,11 +450,7 @@ Stat::is_dir() {
 }
 
 const Stat&
-#if HAVE_OPEN64
-Stat::operator=(const struct stat64& st) {
-#else
 Stat::operator=(const struct stat& st) {
-#endif
 	init(&st);
 	return (*this);
 }
@@ -510,11 +479,7 @@ Dir::open(const String& ndir) {
 int
 Dir::read() {
 	cassert(dir != NULL);
-#if HAVE_READDIR64
-	entry = readdir64(dir);
-#else
 	entry = readdir(dir);
-#endif
 	if (entry != NULL) {
 		name = entry->d_name;
 		type = entry->d_type;

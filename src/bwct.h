@@ -11,18 +11,18 @@
 #ifndef _BWCT
 #define _BWCT
 
-#include <bwct/base.h>
-#include <bwct/bsd.h>
-#include <bwct/fdhelper.h>
-#include <bwct/network.h>
-#include <bwct/tool.h>
-#include <bwct/array.h>
-#include <bwct/thread.h>
-#include <bwct/ssl.h>
-#include <bwct/compress.h>
-#include <bwct/json.h>
-#include <bwct/aarray.h>
-#include <bwct/sarray.h>
+#include "base.h"
+#include "bsd.h"
+#include "fdhelper.h"
+#include "network.h"
+#include "tool.h"
+#include "array.h"
+#include "thread.h"
+#include "ssl.h"
+#include "compress.h"
+#include "json.h"
+#include "aarray.h"
+#include "sarray.h"
 
 #undef PACKAGE_BUGREPORT
 #undef PACKAGE_VERSION

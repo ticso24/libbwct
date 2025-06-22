@@ -5,8 +5,7 @@ libbwct is a generic C++ library used by [BWCT](https://www.bwct.de) software
 ## Installation
 
 ```sh
-./configure
-make
+cmake .
 make install
 ```
 

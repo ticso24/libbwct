@@ -11,11 +11,6 @@
 #ifndef _REPLACEMENTS
 #define _REPLACEMENTS
 
-#if !HAVE_BZERO && HAVE_MEMSET
-#define bzero(buf, bytes) \
-	((void) memset(buf, 0, bytes))
-#endif
-
 #ifndef HAVE_DAEMON
 int daemon(int nochdir, int noclose);
 #endif

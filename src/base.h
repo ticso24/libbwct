@@ -11,7 +11,7 @@
 #ifndef _BASE
 #define _BASE
 
-#include <bwct/config.h>
+#include "config.h"
 
 #include <sys/param.h>
 
@@ -26,9 +26,7 @@
 #include <sys/un.h>
 #include <sys/wait.h>
 
-#ifdef HAVE_MMAP
 # include <sys/mman.h>
-#endif
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -54,14 +52,10 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#ifdef HAVE_STRING_H
 # include <string.h>
-#endif
-#ifdef HAVE_STRINGS_H
 # include <strings.h>
-#endif
 
-#include <bwct/bsd.h>
+#include "bsd.h"
 
 #include <typeinfo>
 #include <exception>
@@ -83,16 +77,12 @@
 # define MAXSOCKADDR 128
 #endif
 
-#ifndef HAVE_IOV_MAX
+#ifndef IOV_MAX
 # define IOV_MAX 16
 #endif
 
 #ifndef LOG_PERROR
 # define LOG_PERROR 0
-#endif
-
-#ifndef HAVE_SOCKLEN_T
-typedef uint32_t socklen_t
 #endif
 
 #ifndef SOCK_MAXADDRLEN

@@ -1,0 +1,7 @@
+#define bwct_VERSION_MAJOR @bwct_VERSION_MAJOR@
+#define bwct_VERSION_MINOR @bwct_VERSION_MINOR@
+
+#define BWCT_DEBUG
+#cmakedefine HAVE_FEATURE_A @Feature_A_FOUND@
+#cmakedefine HAVE_FEATURE_B @Feature_B_FOUND@
+#cmakedefine HAVE_FEATURE_BITS @B_BITSIZE@

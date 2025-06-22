@@ -24,7 +24,7 @@ class Array;
 template <class T>
 class List;
 
-#ifndef DEBUG
+#ifndef BWCT_DEBUG
 #define dbg_beep()
 #define dbg_beepme()
 #define wassert(test)
@@ -68,7 +68,7 @@ class List;
 	    pthread_self(), (long long)stacksize, (long long)guardsize, (long long)stackleft, stackbase, stackpointer, tinfo().c_str(), __FILE__, __LINE__, __func__);	\
 }
 
-#ifdef DEBUG
+#ifdef BWCT_DEBUG
 #define dbg_beep() {							\
 	syslog (LOG_DEBUG, "dbg_beep: %p %s@%d in %s",			\
 	    pthread_self(), __FILE__, __LINE__, __func__);		\
@@ -86,7 +86,7 @@ if (!(test)) {								\
 	    #test, __FILE__, __LINE__, __func__);			\
 }
 
-#endif /* DEBUG */
+#endif /* BWCT_DEBUG */
 
 #ifdef FREEDEBUG
 #define free(ptr);							\
@@ -165,7 +165,7 @@ public:
 	String msg;
 	Error(const char* msg, bool log = true) {
 		(this)->msg = msg;
-#ifdef DEBUG
+#ifdef BWCT_DEBUG
 		if (log) {
 			syslog(LOG_INFO, "Error thrown: %s", msg);
 		}
@@ -173,7 +173,7 @@ public:
 	}
 	Error(const String& msg = "", bool log = true) {
 		(this)->msg = msg;
-#ifdef DEBUG
+#ifdef BWCT_DEBUG
 		if (log) {
 			syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
 		}
@@ -186,7 +186,7 @@ public:
 	}
 };
 
-#ifdef DEBUG
+#ifdef BWCT_DEBUG
 #define abort_assert(test)						\
 if (!(test)) {								\
 	syslog (LOG_EMERG,						\
@@ -196,7 +196,7 @@ if (!(test)) {								\
 }
 #endif
 
-#ifdef DEBUG
+#ifdef BWCT_DEBUG
 #ifdef ASSERT_CORE
 #define cassert(test)							\
 if (!(test)) {								\
@@ -236,7 +236,7 @@ if (!(test)) {								\
 	throw Error(err);						\
 }
 #endif /* ASSERT_CORE */
-#endif /* DEBUG */
+#endif /* BWCT_DEBUG */
 
 #define xassert(test)							\
 if (!(test)) {								\

@@ -82,13 +82,8 @@ public:
 
 class Stat : public Base {
 private:
-#if HAVE_OPEN64
-	void init(const struct stat64 *sp);
-	const Stat& operator=(const struct stat64& st);
-#else
 	void init(const struct stat *sp);
 	const Stat& operator=(const struct stat& st);
-#endif
 public:
 	struct {
 		uint64_t dev;
@@ -126,11 +121,7 @@ public:
 class Dir : public Base {
 private:
 	DIR *dir;
-#if HAVE_READDIR64
-	struct dirent64 *entry;
-#else
 	struct dirent *entry;
-#endif
 public:
 	String dirname;
 	String name;

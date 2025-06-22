@@ -43,19 +43,8 @@
  * $FreeBSD: src/lib/libc/gen/daemon.c,v 1.4 2001/01/24 12:59:21 deischen Exp $
  */
 
-#include <bwct/base.h>
-#include <bwct/bwct.h>
-
-#ifndef HAVE_STRDUP
-char *
-strdup(const char *str) {
-	char *ret;
-
-	ret = (char*)malloc(strlen(str) + 1);
-	strcpy(ret, str);
-	return ret;
-}
-#endif
+#include "base.h"
+#include "bwct.h"
 
 #ifndef HAVE_DAEMON
 int
