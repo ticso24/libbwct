@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/compress.h $
- * $Date: 2017-05-29 16:44:02 +0200 (Mon, 29 May 2017) $
+ * $Date: 2021-12-23 15:28:57 +0100 (Thu, 23 Dec 2021) $
  * $Author: ticso $
- * $Rev: 32572 $
+ * $Rev: 45192 $
  */
 
 #ifndef _COMPRESS
@@ -40,8 +40,8 @@ public:
 #ifdef HAVE_LIBZ
 class Zfile : public Cmpfile {
 protected:
-	a_ptr<char> inbuf;
-	a_ptr<char> outbuf;
+	aa_ptr<char> inbuf;
+	aa_ptr<char> outbuf;
 	char *outptr;
 	z_stream zs;
 	virtual ssize_t microread(void *vptr, size_t n);
@@ -59,8 +59,8 @@ public:
 #ifdef HAVE_LIBBZ2
 class BZ2file : public Cmpfile {
 protected:
-	a_ptr<char> inbuf;
-	a_ptr<char> outbuf;
+	aa_ptr<char> inbuf;
+	aa_ptr<char> outbuf;
 	char *outptr;
 	bz_stream zs;
 	virtual ssize_t microread(void *vptr, size_t n);

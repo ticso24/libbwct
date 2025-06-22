@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/network.h $
- * $Date: 2021-07-09 11:18:21 +0200 (Fri, 09 Jul 2021) $
+ * $Date: 2024-06-16 18:53:55 +0200 (Sun, 16 Jun 2024) $
  * $Author: ticso $
- * $Rev: 44487 $
+ * $Rev: 48275 $
  */
 
 #ifndef _NETWORK
@@ -57,6 +57,7 @@ public:
 		virtual String getpeeraddr();
 		virtual String tinfo() const;
 		void nodelay(int flag);
+		virtual ssize_t sendfile(File &infile);
 		void nonblocking(bool flag);
 	};
 

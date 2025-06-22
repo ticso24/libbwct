@@ -5,7 +5,7 @@
  *
  * crc_hash by Bob Jenkins, (c) 2006, Public Domain
  *
- * $URL: http://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/aarray.cc $
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/aarray.cc $
  * $Date: 2014-01-09 12:53:50 +0100 (Thu, 09 Jan 2014) $
  * $Author: jk $
  * $Rev: 23531 $

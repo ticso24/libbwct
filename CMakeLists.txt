@@ -39,6 +39,7 @@ target_sources(${PROJECT_NAME}
 		src/sarray.cc
 		src/ssl.cc
 		src/thread.cc
+		src/threadpool.cc
 		src/tool.cc
 )
 

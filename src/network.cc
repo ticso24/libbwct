@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/network.cc $
- * $Date: 2021-02-09 00:52:20 +0100 (Tue, 09 Feb 2021) $
+ * $Date: 2025-06-08 19:43:47 +0200 (Sun, 08 Jun 2025) $
  * $Author: ticso $
- * $Rev: 43854 $
+ * $Rev: 49331 $
  */
 
 #include "bwct.h"
@@ -302,11 +302,11 @@ Network::Net::retrievepeername()
 	struct addrinfo *addr0;
 	struct addrinfo hints;
 	int res;
-	a_ptr<char> port;
+	aa_ptr<char> port;
 	port = new char[NI_MAXHOST];
-	a_ptr<char> ip;
+	aa_ptr<char> ip;
 	ip = new char[NI_MAXHOST];
-	a_ptr<char> name;
+	aa_ptr<char> name;
 	name = new char[NI_MAXHOST];
 	int ret;
 	socklen_t addrlen;
@@ -320,7 +320,7 @@ Network::Net::retrievepeername()
 	strcpy(ip.get(), "unresolved");
 	strcpy(name.get(), "unresolved");
 
-	a_ptr<char> addrdt;
+	aa_ptr<char> addrdt;
 	addrdt = new char[SOCK_MAXADDRLEN];
 	struct sockaddr *addr = (struct sockaddr*)addrdt.get();
 	addrlen = SOCK_MAXADDRLEN;
@@ -397,6 +397,30 @@ ok:
 	return ret;
 }
 
+ssize_t
+Network::Net::sendfile(File &infile)
+{
+	off_t offset = 0;
+	off_t sbytes;
+	int res;
+	int safeerrno;
+
+	nonblocking(0);
+	do {
+		res = ::sendfile(infile.fd, fd, offset, 0, NULL, &sbytes, 0);
+		offset += sbytes;
+		if (res < 0 && errno == EAGAIN) {
+			waitwrite();
+		}
+	} while (res < 0 && (errno == EAGAIN || errno == EINTR));
+	safeerrno = errno;
+	nonblocking(1);
+	if (res < 0) {
+		throw Error(String("sendfile: ") + get_strerror(safeerrno));
+	}
+	return (ssize_t)offset;
+}
+
 void
 Network::Net::mywaitread()
 {
@@ -468,7 +492,7 @@ Network::Listen::~Listen()
 	for (int i = 0; i < lfds.max; i++) {
 		for (int j = 0; j <= fdescs_to_close.max; j++) {
 			if (fdescs_to_close[j] == lfds[i]) {
-				fdescs_to_close.del(j);
+				fdescs_to_close.erase(j);
 				j--;
 			}
 		}

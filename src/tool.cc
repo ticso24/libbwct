@@ -4,19 +4,18 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/tool.cc $
- * $Date: 2021-07-20 16:09:46 +0200 (Tue, 20 Jul 2021) $
+ * $Date: 2025-05-26 13:11:59 +0200 (Mon, 26 May 2025) $
  * $Author: ticso $
- * $Rev: 44547 $
+ * $Rev: 49280 $
  */
 
 #include <sys/types.h>
+#include <machine/atomic.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
 
 #include "bwct.h"
-
-Mutex fetch_mtx;
 
 void
 print_rusage()
@@ -44,14 +43,7 @@ Base::check() const
 	}
 }
 
-Base::Base ()
-{
-
-	refcount = 0;
-//	log("create");
-}
-
-Base::~Base()
+Base::~Base() noexcept
 {
 
 	check();
@@ -61,25 +53,25 @@ Base::~Base()
 }
 
 void
-Base::log(int priority, const String& str) const
+Base::log(int priority, const String& str) const noexcept
 {
 	syslog(priority, "%s %s", str.c_str(), tinfo().c_str());
 }
 
 void
-Base::log(int priority, const char *str) const
+Base::log(int priority, const char *str) const noexcept
 {
 	syslog(priority, "%s %s", str, tinfo().c_str());
 }
 
 void
-Base::log(const String& str) const
+Base::log(const String& str) const noexcept
 {
 	log(LOG_DEBUG, str);
 }
 
 void
-Base::log(const char *str) const
+Base::log(const char *str) const noexcept
 {
 	log(LOG_DEBUG, str);
 }
@@ -93,19 +85,21 @@ Base::tinfo() const
 }
 
 void
-Base::addref()
+Base::addref() noexcept
 {
 	check();
-	refcount++;
+	atomic_add_int((volatile u_int*)&refcount, 1);
 	//syslog(LOG_DEBUG, "addref %s", tinfo().c_str());
 }
 
 void
-Base::delref()
+Base::delref() noexcept
 {
 	check();
+	int lastref;
+	lastref = (int)atomic_fetchadd_int((volatile u_int*)&refcount, (u_int)-1);
 	//syslog(LOG_DEBUG, "delref %s", tinfo().c_str());
-	if (--refcount == 0) {
+	if (lastref == 1) {
 		//syslog(LOG_DEBUG, "deleting %s by reference", tinfo().c_str());
 		delete this;
 	}
@@ -219,7 +213,7 @@ getSHA1(const String& data)
 	SHA1_Final(hash.buf, &context);
 	return hash;
 }
-#endif /* HAVE_OPENSSL */
+#endif /* OPENSSL */
 
 String
 get_base64hash(SHA1_Hash hash)
@@ -322,11 +316,10 @@ gettimesec(void)
 String
 sgethostname()
 {
-	a_ptr<char> tmp;
-	tmp = new char[MAXHOSTNAMELEN + 1];
-	if (gethostname(tmp.get(), MAXHOSTNAMELEN + 1) < 0)
+	char tmp[MAXHOSTNAMELEN + 1];
+	if (gethostname(tmp, MAXHOSTNAMELEN + 1) < 0)
 		throw Error("gethostname failed:");
-	String hostname(tmp.get());
+	String hostname(tmp);
 	return hostname;
 }
 
@@ -461,7 +454,7 @@ base64_encode(void* data, size_t length)
 }
 
 uint16_t
-fasthash(const String& key)
+fasthash(const String& key) noexcept
 {
 	uint16_t ret = 0;
 	const char* v = key.c_str();
@@ -473,7 +466,7 @@ fasthash(const String& key)
 }
 
 uint8_t
-nibbletobin(char rh)
+nibbletobin(char rh) noexcept
 {
 	if (rh >= '0' && rh <= '9') {
 		return (rh - '0');
@@ -534,10 +527,11 @@ static const uint32_t crctab[256] = {
 };
 
 uint32_t
-crc_hash(const void *key, uint32_t len, uint32_t hash)
+crc_hash(const void *key, uint32_t len) noexcept
 {
 	uint32_t  i;
 	const uint8_t *k = (const uint8_t*)key;
+	uint32_t hash;
 	for (hash = len, i = 0; i < len; ++i) {
 		hash = (hash >> 8) ^ crctab[(hash & 0xff) ^ k[i]];
 	}
@@ -556,11 +550,71 @@ getload()
 	return  avenrun[0];
 }
 
+void
+call_external(Array<String>& args, bool dontwait)
+{
+	struct sigaction sa;
+	struct sigaction osa;
+	sa.sa_handler = SIG_DFL;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	if (sigaction(SIGCHLD, &sa, &osa) != 0) {
+		throw Error(S + "sigaction failed " + get_strerror(errno));
+	}
+	try {
+
+		String path = args[0];
+
+		String x;
+
+		char* argv[args.max + 2];
+		for (int64_t i = 0; i <= args.max; i++) {
+			argv[i] = (char*) args[i].c_str();
+			x += args[i] + " ";
+			argv[i + 1] = NULL;
+		}
+
+		{
+			String logstr;
+			logstr = S + "exec: " + x;
+			syslog(LOG_DEBUG, "%s", logstr.c_str());
+		}
+
+		pid_t child = fork();
+		if (child == 0) { // are we the child?
+			closefrom(3);
+			execv(path.c_str(), (char**) &argv);
+
+			// if we are still here something with exec went wrong
+			_exit(-1);
+		} else if (child != -1) { // are we the parent?
+			// wait for child to complete
+			int status;
+			pid_t res;
+			do {
+				res = wait4(child, &status, dontwait ? WNOHANG : 0, NULL);
+			} while (res == -1 && (errno == EAGAIN || errno == EINTR));
+			if (res == -1) {
+				throw Error(S + "waiting for child failed " + get_strerror(errno));
+			}
+			if (status != 0) {
+				throw Error(S + "child returned status " + status);
+			}
+		} else {
+			throw Error(S + "fork failed " + get_strerror(errno));
+		}
+	} catch (...) {
+		sigaction(SIGCHLD, &osa, NULL);
+		throw;
+	}
+	sigaction(SIGCHLD, &osa, NULL);
+}
+
 String
 get_strerror(int num)
 {
 	String ret;
-	char ebuf[2048]; // NL_TEXTMAX, but Linux idiots have it defined as INT_MAX
+	char ebuf[NL_TEXTMAX];
 
 	if (strerror_r(num, ebuf, sizeof(ebuf)) != 0) {
 		ret = "invalid errno";
@@ -595,7 +649,8 @@ getrandomAlNum(size_t length)
 		if ((rnd >= '0' && rnd <= '9') ||
 		    (rnd >= 'a' && rnd <= 'z') ||
 		    (rnd >= 'A' && rnd <= 'Z')) {
-			result.printf("%s%c", result.c_str(), rnd);
+		    	String tmp = result;
+			result.printf("%s%c", tmp.c_str(), rnd);
 		}
 	}
 	return result;
@@ -609,7 +664,8 @@ getrandomAlpha(size_t length)
 		uint64_t rnd = getrandom() % 122;
 		if ((rnd >= 'a' && rnd <= 'z') ||
 		    (rnd >= 'A' && rnd <= 'Z')) {
-			result.printf("%s%c", result.c_str(), rnd);
+		    	String tmp = result;
+			result.printf("%s%c", tmp.c_str(), rnd);
 		}
 	}
 	return result;
@@ -664,9 +720,6 @@ pw_crypt_compare(const String& pw, const String& hash)
 String
 XML_ESC(const String &lh, bool text)
 {
-	if (lh.type == String::Type_Enum::xml) {
-		return lh;
-	}
 	char buf[2];
 	String ret;
 	const char* plh;
@@ -705,6 +758,8 @@ XML_ESC(const String &lh, bool text)
 		case 0x0c:	// just in case some broken browser complains...
 		case 0x0e:	// just in case some broken browser complains...
 		case 0x0f:	// just in case some broken browser complains...
+		case 0x09:	// just in case some broken browser complains...
+		case 0x10:	// just in case some broken browser complains...
 		case 0x11:	// (HT) Horizontal Tab - Firefox complains even if it is escaped - sighXXL
 		case 0x12:	// just in case some broken browser complains...
 		case 0x13:	// Device Control 3 - all supported browsers complain
@@ -727,8 +782,6 @@ XML_ESC(const String &lh, bool text)
 		case '\'':	// single quotes
 		case '\n':	// (NL) newline
 		case '\r':	// (CR) carriage return
-		case 0x09:	// just in case some broken browser complains...
-		case 0x10:	// just in case some broken browser complains...
 			ret += "&#";
 			ret += (unsigned int) (unsigned char) tmp;
 			ret += ";";
@@ -739,7 +792,6 @@ XML_ESC(const String &lh, bool text)
 			break;
 		}
 	}
-	ret.type = String::Type_Enum::xml;
 	return ret;
 }
 

@@ -4,20 +4,14 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/thread.cc $
- * $Date: 2020-03-10 14:37:35 +0100 (Tue, 10 Mar 2020) $
+ * $Date: 2025-05-16 15:54:27 +0200 (Fri, 16 May 2025) $
  * $Author: ticso $
- * $Rev: 42224 $
+ * $Rev: 49233 $
  */
 
 #include "bwct.h"
 
 Thread::Thread()
-{
-	id = 0;
-}
-
-Thread::Thread(const Thread& cpy) :
-	Base(cpy)
 {
 	id = 0;
 }
@@ -95,7 +89,7 @@ Thread::atforkwipe()
 void
 Thread::setname(const String& name)
 {
-	pthread_setname_np(id, name.c_str());
+	pthread_set_name_np(id, name.c_str());
 }
 
 void
@@ -110,7 +104,7 @@ Thread::join()
 void
 setthreadname(const String& name)
 {
-	pthread_setname_np(pthread_self(), name.c_str());
+	pthread_set_name_np(pthread_self(), name.c_str());
 }
 
 Mutex::Mutex()

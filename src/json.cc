@@ -4,23 +4,30 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/json.cc $
- * $Date: 2021-07-22 12:34:19 +0200 (Thu, 22 Jul 2021) $
+ * $Date: 2025-06-07 23:21:24 +0200 (Sat, 07 Jun 2025) $
  * $Author: ticso $
- * $Rev: 44553 $
+ * $Rev: 49325 $
  */
 
 #include "bwct.h"
 
 JSON::JSON()
 {
+#ifdef WITH_VARIANT
+	data = std::monostate();
+#else
 	str = NULL;
 	array = NULL;
 	aarray = NULL;
 	type = Type::null;
+#endif
 }
 
 JSON::JSON(const JSON& rh)
 {
+#ifdef WITH_VARIANT
+	data = rh.data;
+#else
 	str = NULL;
 	array = NULL;
 	aarray = NULL;
@@ -51,10 +58,14 @@ JSON::JSON(const JSON& rh)
 		clear();
 		throw;
 	}
+#endif
 }
 
-JSON::JSON(JSON&& rh)
+JSON::JSON(JSON&& rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data = std::move(rh.data);
+#else
 	str = NULL;
 	array = NULL;
 	aarray = NULL;
@@ -80,32 +91,48 @@ JSON::JSON(JSON&& rh)
 	case Type::null:
 		break;
 	}
+#endif
 }
 
-JSON::~JSON()
+JSON::~JSON() noexcept
 {
+#ifndef WITH_VARIANT
 	clear();
+#endif
 }
 
 void
 JSON::parse(const String& json)
 {
-	int64_t parserpos = 0;
-	iparse(json, parserpos);
-	cassert(parserpos == (int64_t)json.length());
+	Parserargs args(json);
+	iparse(args);
+	cassert(args.parserpos == (int64_t)json.length());
+}
+
+String
+JSON::parseerrormsg(const char* msg, Parserargs& args) const
+{
+	String fullmsg;
+	return fullmsg.printf("%s in line:%ld column:%ld", msg, args.linenr, args.columnnr);
 }
 
 void
-JSON::parsewhitespace(const String& json, int64_t& parserpos)
+JSON::parsewhitespace(Parserargs& args)
 {
+	const char* str = args.json.c_str();
 	for(;;) {
-		char c = json[parserpos];
+		char c = str[args.parserpos];
 		switch (c) {
-		case ' ':
 		case '\n':
+			args.parserpos++;
+			args.linenr++;
+			args.columnnr = 1;
+			break;
+		case ' ':
 		case '\r':
 		case '\t':
-			parserpos++;
+			args.parserpos++;
+			args.columnnr++;
 			break;
 		default:
 			return;
@@ -114,32 +141,35 @@ JSON::parsewhitespace(const String& json, int64_t& parserpos)
 }
 
 String
-JSON::parsestring(const String& json, int64_t& parserpos)
+JSON::parsestring(Parserargs& args)
 {
+	const char* str = args.json.c_str();
 	String ret;
 	uint8_t c;
 	char tmp[2] = {'\0', '\0'};
 
-	while ((c = json[parserpos]) != '"') {
+	while ((c = str[args.parserpos]) != '"') {
 		switch (c) {
 		case '\\':
-			parserpos += 1;
-			c = json[parserpos];
+			args.parserpos += 1;
+			args.columnnr += 1;
+			c = str[args.parserpos];
 			switch(c) {
 			case '\\':
 			case '"':
 			case '/':
 				tmp[0] = c;
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			case 'u':
 				{
-					parserpos += 1;
+					args.parserpos += 1;
 					uint16_t hval = 0;
 					for (int i = 0; i < 4; i++) {
 						hval <<= 4;
-						c = json[parserpos];
+						c = str[args.parserpos];
 						switch(c) {
 						case 'a':
 						case 'b':
@@ -170,9 +200,10 @@ JSON::parsestring(const String& json, int64_t& parserpos)
 							hval |= c - '0';
 							break;
 						default:
-							TError("\\u encoding error");
+							TError(parseerrormsg("\\u encoding error", args));
 						}
-						parserpos += 1;
+						args.parserpos += 1;
+						args.columnnr += 1;
 					}
 					if (hval < 0x80) {
 						tmp[0] = hval & 0x7f;
@@ -196,143 +227,199 @@ JSON::parsestring(const String& json, int64_t& parserpos)
 			case 'b':
 				tmp[0] = 0x08;
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			case 'f':
 				tmp[0] = 0x0c;
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			case 'n':
 				tmp[0] = '\n';
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			case 'r':
 				tmp[0] = '\r';
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			case 't':
 				tmp[0] = '\t';
 				ret += tmp;
-				parserpos += 1;
+				args.parserpos += 1;
+				args.columnnr += 1;
 				break;
 			default:
-				TError("\\ encoding error");
+				TError(parseerrormsg("\\ encoding error", args));
 			}
 			break;
 		default:
 			tmp[0] = c;
 			ret += tmp;
-			parserpos += 1;
+			args.parserpos += 1;
+			args.columnnr += 1;
 			break;
 		}
 	}
-	parserpos += 1;
+	args.parserpos += 1;
+	args.columnnr += 1;
 	return ret;
 }
 
 void
-JSON::iparse(const String& json, int64_t& parserpos)
+JSON::iparse(Parserargs& args)
 {
+	const char* str = args.json.c_str();
+#ifndef WITH_VARIANT
 	clear();
-	parsewhitespace(json, parserpos);
-	if (json.strncmp(parserpos, "\"")) {
+#endif
+	parsewhitespace(args);
+	if (args.json.strncmp(args.parserpos, "\"")) {
+		args.parserpos += 1;
+		args.columnnr += 1;
+#ifdef WITH_VARIANT
+		data.emplace<(int)Type::string>(parsestring(args));
+#else
 		type = Type::string;
-		parserpos += 1;
 		delete str;
 		str = NULL;
 		str = new String;
-		*str = parsestring(json, parserpos);
-	} else if (json.strncmp(parserpos, "[")) {
+		*str = parsestring(args);
+#endif
+	} else if (args.json.strncmp(args.parserpos, "[")) {
 		{
 			bool cont = true;
+#ifdef WITH_VARIANT
+			data = Array<JSON>();
+#else
 			type = Type::array;
 			delete array;
 			array = NULL;
 			array = new Array<JSON>;
-			parserpos += 1;
-			parsewhitespace(json, parserpos);
-			if (json[parserpos] == ']') {
-				parserpos += 1;
-				parsewhitespace(json, parserpos);
+#endif
+			args.parserpos += 1;
+			args.columnnr += 1;
+			parsewhitespace(args);
+			if (str[args.parserpos] == ']') {
+				args.parserpos += 1;
+				args.columnnr += 1;
+				parsewhitespace(args);
 				cont = false;
 			}
 			while (cont) {
+#ifdef WITH_VARIANT
+				auto* array = &std::get<Array<JSON>>(data);
+#endif
 				int64_t newpos = array->max + 1;
-				(*array)[newpos].iparse(json, parserpos);
-				if (json[parserpos] != ',') {
-					if (json[parserpos] != ']') {
-						TError("no closing ']'");
+				(*array)[newpos].iparse(args);
+				if (str[args.parserpos] != ',') {
+					if (str[args.parserpos] != ']') {
+						TError(parseerrormsg("no closing ']'", args));
 					}
-					parserpos += 1;
+					args.parserpos += 1;
+					args.columnnr += 1;
 					cont = false;
 				} else {
-					parserpos += 1;
-					parsewhitespace(json, parserpos);
+					args.parserpos += 1;
+					args.columnnr += 1;
+					parsewhitespace(args);
 				}
 			}
 		}
-	} else if (json.strncmp(parserpos, "{")) {
+	} else if (args.json.strncmp(args.parserpos, "{")) {
 		{
 			bool cont = true;
+#ifdef WITH_VARIANT
+			data = AArray<JSON>();
+#else
 			type = Type::object;
 			delete aarray;
 			aarray = NULL;
 			aarray = new AArray<JSON>;
-			parserpos += 1;
-			parsewhitespace(json, parserpos);
-			if (json[parserpos] == '}') {
-				parserpos += 1;
-				parsewhitespace(json, parserpos);
+#endif
+			args.parserpos += 1;
+			args.columnnr += 1;
+			parsewhitespace(args);
+			if (str[args.parserpos] == '}') {
+				args.parserpos += 1;
+				args.columnnr += 1;
+				parsewhitespace(args);
 				cont = false;
 			}
 			while (cont) {
-				if (json[parserpos] != '"') {
-					TError("no key string");
+				if (str[args.parserpos] != '"') {
+					TError(parseerrormsg("no key string", args));
 				}
-				parserpos += 1;
-				String key = parsestring(json, parserpos);
-				parsewhitespace(json, parserpos);
-				if (json[parserpos] != ':') {
-					TError("missing \":\"");
+				args.parserpos += 1;
+				args.columnnr += 1;
+				String key = parsestring(args);
+				parsewhitespace(args);
+				if (str[args.parserpos] != ':') {
+					TError(parseerrormsg("missing \":\"", args));
 				}
-				parserpos += 1;
-				parsewhitespace(json, parserpos);
-				(*aarray)[key].iparse(json, parserpos);
-				if (json[parserpos] != ',') {
-					if (json[parserpos] != '}') {
-						TError("no closing '}'");
+				args.parserpos += 1;
+				args.columnnr += 1;
+				parsewhitespace(args);
+#ifdef WITH_VARIANT
+				auto* aarray = &std::get<AArray<JSON>>(data);
+#endif
+				(*aarray)[key].iparse(args);
+				if (str[args.parserpos] != ',') {
+					if (str[args.parserpos] != '}') {
+						TError(parseerrormsg("no closing '}'", args));
 					}
-					parserpos += 1;
+					args.parserpos += 1;
+					args.columnnr += 1;
 					cont = false;
 				} else {
-					parserpos += 1;
-					parsewhitespace(json, parserpos);
+					args.parserpos += 1;
+					args.columnnr += 1;
+					parsewhitespace(args);
 				}
 			}
 		}
-	} else if (json.strncmp(parserpos, "true")) {
+	} else if (args.json.strncmp(args.parserpos, "true")) {
+#ifdef WITH_VARIANT
+		data = true;
+#else
 		type = Type::boolean;
 		bool_state = true;
-		parserpos += 4;
-	} else if (json.strncmp(parserpos, "false")) {
+#endif
+		args.parserpos += 4;
+		args.columnnr += 4;
+	} else if (args.json.strncmp(args.parserpos, "false")) {
+#ifdef WITH_VARIANT
+		data = false;
+#else
 		type = Type::boolean;
 		bool_state = false;
-		parserpos += 5;
-	} else if (json.strncmp(parserpos, "null")) {
+#endif
+		args.parserpos += 5;
+		args.columnnr += 5;
+	} else if (args.json.strncmp(args.parserpos, "null")) {
+#ifdef WITH_VARIANT
+		data = std::monostate();
+#else
 		type = Type::null;
-		parserpos += 4;
+#endif
+		args.parserpos += 4;
+		args.columnnr += 4;
 	} else {
 		{
 			// probe for numberic data
+#ifndef WITH_VARIANT
 			type = Type::number;
+#endif
 			bool cont = true;
 			String val;
 			char tmp[2] = {'\0', '\0'};
 			while (cont) {
-				uint8_t c = json[parserpos];
+				uint8_t c = str[args.parserpos];
 				switch(c) {
 				case '0':
 				case '1':
@@ -350,13 +437,14 @@ JSON::iparse(const String& json, int64_t& parserpos)
 				case 'E':
 				case 'e':
 					if (c == '.' && val == "") { // floats must start with '0'
-						TError("Not a number");
+						TError(parseerrormsg("Not a number", args));
 					} else if ((val == "0" || val == "-0" || val == "+0") && !(c == '.' || c == 'e' || c == 'E')) { // numbers must not have leading zeros
-						TError("Not a number");
+						TError(parseerrormsg("Not a number", args));
 					}
 					tmp[0] = c;
 					val += tmp;
-					parserpos += 1;
+					args.parserpos += 1;
+					args.columnnr += 1;
 					break;
 				default:
 					cont = false;
@@ -365,17 +453,60 @@ JSON::iparse(const String& json, int64_t& parserpos)
 			char *p_end;
 			std::strtod(val.c_str(), &p_end);
 			if (*p_end != 0) {
-			    TError("Not a number");
+			    TError(parseerrormsg("Not a number", args));
 			}
+#ifdef WITH_VARIANT
+			data.emplace<(int)Type::number>(val);
+#else
 			delete str;
 			str = NULL;
 			str = new String;
 			*str = val;
+#endif
 		}
 	}
-	parsewhitespace(json, parserpos);
+	parsewhitespace(args);
 }
 
+void
+JSON::create_table(AArray<JSON>& val, String path) const
+{
+#ifdef WITH_VARIANT
+	switch((Type)data.index()) {
+#else
+	switch(type) {
+#endif
+	case Type::null:
+	case Type::string:
+	case Type::number:
+	case Type::boolean:
+		val[path] = *this;
+		break;
+	case Type::object:
+		{
+#ifdef WITH_VARIANT
+			auto* aarray = &std::get<AArray<JSON>>(data);
+#endif
+			Array<String> keys = aarray->getkeys(true);
+			for (int i = 0; i <= keys.max; i++) {
+				String subpath = path + "[\"" + keys[i] + "\"]";
+				(*aarray)[keys[i]].create_table(val, subpath);
+			}
+		}
+		break;
+	case Type::array:
+#ifdef WITH_VARIANT
+		auto* array = &std::get<Array<JSON>>(data);
+#endif
+		for (int i = 0; i <= array->max; i++) {
+			String subpath = path + "[" + i + "]";
+			(*array)[i].create_table(val, subpath);
+		}
+		break;
+	}
+}
+
+#ifndef WITH_VARIANT
 void
 JSON::clear()
 {
@@ -387,6 +518,7 @@ JSON::clear()
 	delete aarray;
 	aarray = NULL;
 }
+#endif
 
 String
 JSON::ESC(const String& val)
@@ -457,102 +589,119 @@ String
 JSON::generate(bool formated) const
 {
 	String ret;
-	Array<String> data;
-	int_generate(data, formated, 0);
+	int_generate(ret, formated, 0);
 	if (formated) {
-		data << S + "\n";
+		ret += S + "\n";
 	}
-	ret = std::move(data);
 	return ret;
 }
 
 void
-JSON::create_table(AArray<JSON>& data, String path) const
+JSON::int_generate(String& val, bool formated, int level) const
 {
-	switch(type) {
-	case Type::null:
-	case Type::string:
-	case Type::number:
-	case Type::boolean:
-		data[path] = *this;
-		break;
-	case Type::object:
-		{
-			Array<String> keys = aarray->getkeys(true);
-			for (int i = 0; i <= keys.max; i++) {
-				String subpath = path + "[\"" + keys[i] + "\"]";
-				(*aarray)[keys[i]].create_table(data, subpath);
-			}
-		}
-		break;
-	case Type::array:
-		for (int i = 0; i <= array->max; i++) {
-			String subpath = path + "[" + i + "]";
-			(*array)[i].create_table(data, subpath);
-		}
-		break;
-	}
-}
-
-void
-JSON::int_generate(Array<String>& data, bool formated, int level) const
-{
-	String nl;
 	String indent;
 	String indentx;
-	String space;
 	if (formated) {
-		nl = "\n";
 		char tmp[level + 1];
 		memset(tmp, '\t', level);
 		tmp[level] = '\0';
 		indent = tmp;
 		indentx = indent + "\t";
-		space = " ";
 	}
+#ifdef WITH_VARIANT
+	switch((Type)data.index()) {
+#else
 	switch(type) {
+#endif
 	case Type::null:
-		data << S + "null";
+		val += S + "null";
 		break;
 	case Type::string:
-		data << S + "\"" + ESC(*str) + "\"";
+#ifdef WITH_VARIANT
+		val += S + "\"" + ESC(std::get<(int)Type::string>(data)) + "\"";
+#else
+		val += S + "\"" + ESC(*str) + "\"";
+#endif
 		break;
 	case Type::object:
 		{
-			Array<String> keys = aarray->getkeys(true);
-			data << S + "{" + nl;
-			for (int i = 0; i <= keys.max; i++) {
-				data << indentx + "\"" + ESC(keys[i]) + "\"" + space + ":" + space;
-				(*aarray)[keys[i]].int_generate(data, formated, level + 1);
-				if (i != keys.max) {
-					data << S + "," + nl;
-				} else if (formated) {
-					data << nl;
+#ifdef WITH_VARIANT
+			auto* aarray = &std::get<AArray<JSON>>(data);
+#endif
+
+			if (formated) {
+				auto pairs = aarray->getpairs(true);
+				val += S + "{\n";
+				for (int i = 0; i <= pairs.max; i++) {
+					val += indentx + "\"" + ESC(*pairs[i].first) + "\" : ";
+					pairs[i].second->int_generate(val, formated, level + 1);
+					if (i != pairs.max) {
+						val += S + ",\n";
+					} else {
+						val += "\n";
+					}
 				}
+				val += indent + "}";
+			} else {
+				val += S + "{";
+				for (auto it = aarray->begin(); it != aarray->end(); ++it) {
+					val += S + "\"" + ESC(it->first) + "\":";
+					it->second.int_generate(val, formated, level + 1);
+					auto tmp_it = it;
+					++tmp_it;
+					if (tmp_it != aarray->end()) {
+						val += S + ",";
+					}
+				}
+				val += "}";
 			}
-			data << indent + "}";
 		}
 		break;
 	case Type::number:
-		data << *str;
+#ifdef WITH_VARIANT
+		val += std::get<(int)Type::number>(data);
+#else
+		val += *str;
+#endif
 		break;
 	case Type::array:
-		data << S + "[" + nl;
-		for (int i = 0; i <= array->max; i++) {
+		{
+#ifdef WITH_VARIANT
+			auto* array = &std::get<Array<JSON>>(data);
+#endif
 			if (formated) {
-				data << indentx;
+				val += S + "[\n";
+			} else {
+				val += S + "[";
 			}
-			(*array)[i].int_generate(data, formated, level + 1);
-			if (i != array->max) {
-				data << S + "," + nl;
-			} else if (formated) {
-				data << nl;
+			for (int i = 0; i <= array->max; i++) {
+				if (formated) {
+					val += indentx;
+				}
+				(*array)[i].int_generate(val, formated, level + 1);
+				if (i != array->max) {
+					if (formated) {
+						val += S + ",\n";
+					} else {
+						val += S + ",";
+					}
+				} else if (formated) {
+					val += "\n";
+				}
+			}
+			if (formated) {
+				val += indent + "]";
+			} else {
+				val += "]";
 			}
 		}
-		data << indent + "]";
 		break;
 	case Type::boolean:
-		data << S + ((bool_state) ? "true" : "false");
+#ifdef WITH_VARIANT
+		val += (std::get<bool>(data)) ? "true" : "false";
+#else
+		val += S + ((bool_state) ? "true" : "false");
+#endif
 		break;
 	}
 }
@@ -560,10 +709,16 @@ JSON::int_generate(Array<String>& data, bool formated, int level) const
 const JSON&
 JSON::operator=(const JSON& rh)
 {
+#ifdef WITH_VARIANT
+	data = rh.data;
+#else
 	clear();
 	type = rh.type;
 	switch(type) {
 	case Type::string:
+		str = new String;
+		*str = *rh.str;
+		break;
 	case Type::number:
 		str = new String;
 		*str = *rh.str;
@@ -582,12 +737,16 @@ JSON::operator=(const JSON& rh)
 	case Type::null:
 		break;
 	}
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::operator=(JSON&& rh)
+JSON::operator=(JSON&& rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data = std::move(rh.data);
+#else
 	clear();
 	type = rh.type;
 	switch(type) {
@@ -607,392 +766,458 @@ JSON::operator=(JSON&& rh)
 	case Type::null:
 		break;
 	}
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::operator=(bool rh)
+JSON::operator=(bool rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data = rh;
+#else
 	clear();
 	type = Type::boolean;
 	bool_state = rh;
+#endif
 	return *this;
 }
 
 const JSON&
 JSON::operator=(const char* rh)
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::string>(rh);
+#else
 	clear();
 	type = Type::string;
 	str = new String;
 	*str = rh;
+#endif
 	return *this;
 }
 
 const JSON&
 JSON::operator=(const String& rh)
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::string>(rh);
+#else
 	clear();
 	type = Type::string;
 	str = new String;
 	*str = rh;
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::operator=(String&& rh)
+JSON::operator=(String&& rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::string>(std::move(rh));
+#else
 	clear();
 	type = Type::string;
 	str = new String;
 	*str = std::move(rh);
+#endif
 	return *this;
 }
 
 const JSON&
 JSON::operator=(int64_t rh)
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::number>(rh);
+#else
 	clear();
 	type = Type::number;
 	str = new String;
 	*str = String(rh);
+#endif
 	return *this;
 }
 
 const JSON&
 JSON::operator=(const Array<JSON>& rh)
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::array>(rh);
+#else
 	clear();
 	type = Type::array;
 	array = new Array<JSON>;
 	*array = rh;
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::operator=(Array<JSON>&& rh)
+JSON::operator=(Array<JSON>&& rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::array>(std::move(rh));
+#else
 	clear();
 	type = Type::array;
 	array = new Array<JSON>;
 	*array = std::move(rh);
+#endif
 	return *this;
 }
 
 const JSON&
 JSON::operator=(const AArray<JSON>& rh)
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::object>(rh);
+#else
 	clear();
 	type = Type::object;
 	aarray = new AArray<JSON>;
 	*aarray = rh;
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::operator=(AArray<JSON>&& rh)
+JSON::operator=(AArray<JSON>&& rh) noexcept
 {
+#ifdef WITH_VARIANT
+	data.emplace<(int)Type::object>(std::move(rh));
+#else
 	clear();
 	type = Type::object;
 	aarray = new AArray<JSON>;
 	*aarray = std::move(rh);
+#endif
 	return *this;
 }
 
 const JSON&
-JSON::set_null()
+JSON::set_null() noexcept
 {
+#ifdef WITH_VARIANT
+		data = std::monostate();
+#else
 	clear();
 	type = Type::null;
+#endif
 	return *this;
 }
 
 bool
 JSON::operator==(const char* rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::string, rh);
+	return std::get<(int)Type::string>(data) == rh;
+#else
 	cassertm(type == Type::string, rh);
 	return *str == rh;
+#endif
 }
 
 bool
 JSON::operator==(const String& rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::string, rh.c_str());
+	return std::get<(int)Type::string>(data) == rh;
+#else
 	cassertm(type == Type::string, rh.c_str());
 	return *str == rh;
+#endif
 }
 
 bool
 JSON::operator!=(const char* rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() != (int)Type::string, rh);
+	return std::get<(int)Type::string>(data) == rh;
+#else
 	cassertm(type == Type::string, rh);
 	return *str != rh;
+#endif
 }
 
 bool
 JSON::operator!=(const String& rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() != (int)Type::string, rh.c_str());
+	return std::get<(int)Type::string>(data) == rh;
+#else
 	cassertm(type == Type::string, rh.c_str());
 	return *str != rh;
+#endif
 }
 
 const JSON&
 JSON::operator[](const char* rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, rh);
+	return std::get<(int)Type::object>(data)[rh];
+#else
 	cassertm(type == Type::object, rh);
 	JSON* ret;
 	ret = &(*aarray)[rh];
 	return *ret;
+#endif
 }
 
 JSON&
 JSON::operator[](const char* rh)
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, rh);
+	return std::get<(int)Type::object>(data)[rh];
+#else
 	cassertm(type == Type::object, rh);
 	JSON* ret;
 	ret = &(*aarray)[rh];
 	return *ret;
+#endif
 }
 
 const JSON&
 JSON::operator[](const String& rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, rh.c_str());
+	return std::get<(int)Type::object>(data)[rh];
+#else
 	cassertm(type == Type::object, rh.c_str());
 	JSON* ret;
 	ret = &(*aarray)[rh];
 	return *ret;
+#endif
 }
 
 JSON&
 JSON::operator[](const String& rh)
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, rh.c_str());
+	return std::get<(int)Type::object>(data)[rh];
+#else
 	cassertm(type == Type::object, rh.c_str());
 	JSON* ret;
 	ret = &(*aarray)[rh];
 	return *ret;
+#endif
 }
 
 const JSON&
 JSON::operator[](int64_t rh) const
 {
-	cassertm(type == Type::array, reinterpret_cast<const char*>(rh));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::array, (S + rh).c_str());
+	return std::get<(int)Type::array>(data)[rh];
+#else
+	cassertm(type == Type::array, (S + rh).c_str());
 	JSON* ret;
 	ret = &(*array)[rh];
 	return *ret;
+#endif
 }
 
 JSON&
 JSON::operator[](int64_t rh)
 {
-	cassertm(type == Type::array, reinterpret_cast<const char*>(rh));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::array, (S + rh).c_str());
+	return std::get<(int)Type::array>(data)[rh];
+#else
+	cassertm(type == Type::array, (S + rh).c_str());
 	JSON* ret;
 	ret = &(*array)[rh];
 	return *ret;
+#endif
 }
 
 JSON::operator bool() const
 {
-	cassertm(type == Type::boolean, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::boolean, (S + data.index()).c_str());
+	return std::get<bool>(data);
+#else
+	cassertm(type == Type::boolean, (S + (int)type).c_str());
 	return bool_state;
+#endif
 }
 
 const String&
 JSON::get_numstr() const
 {
-	cassertm(type == Type::number, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::number, (S + data.index()).c_str());
+	return std::get<(int)Type::number>(data);
+#else
+	cassertm(type == Type::number, (S + (int)type).c_str());
 	return *str;
+#endif
 }
 const String&
 JSON::get_str() const
 {
-	cassertm(type == Type::string, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::string, (S + data.index()).c_str());
+	return std::get<(int)Type::string>(data);
+#else
+	cassertm(type == Type::string, (S + (int)type).c_str());
 	return *str;
+#endif
 }
 
 const char*
 JSON::c_str() const
 {
-	cassertm(type == Type::string, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::string, (S + data.index()).c_str());
+	return std::get<(int)Type::string>(data).c_str();
+#else
+	cassertm(type == Type::string, (S + (int)type).c_str());
 	return str->c_str();
+#endif
 }
 
 Array<JSON>&
 JSON::get_array()
 {
-	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::array, (S + data.index()).c_str());
+	return const_cast<Array<JSON>&>(std::get<(int)Type::array>(data));
+#else
+	cassertm(type == Type::array, (S + (int)type).c_str());
 	return *array;
+#endif
 }
 
 int64_t
 JSON::get_max() const
 {
-	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::array, (S + data.index()).c_str());
+	return std::get<(int)Type::array>(data).max;
+#else
+	cassertm(type == Type::array, (S + (int)type).c_str());
 	return array->max;
+#endif
 }
 
 AArray<JSON>&
 JSON::get_object()
 {
-	cassertm(type == Type::object, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, (S + data.index()).c_str());
+	return (std::get<(int)Type::object>(data));
+#else
+	cassertm(type == Type::object, (S + (int)type).c_str());
 	return *aarray;
+#endif
 }
 
 bool
 JSON::exists(const String& rh) const
 {
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, (S + data.index()).c_str());
+	return std::get<(int)Type::object>(data).exists(rh);
+#else
 	cassertm(type == Type::object, rh.c_str());
 	return aarray->exists(rh);
+#endif
 }
 
 const Array<JSON>&
 JSON::get_array() const
 {
-	cassertm(type == Type::array, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::array, (S + data.index()).c_str());
+	return std::get<(int)Type::array>(data);
+#else
+	cassertm(type == Type::array, (S + (int)type).c_str());
 	return *array;
+#endif
 }
 
 const AArray<JSON>&
 JSON::get_object() const
 {
-	cassertm(type == Type::object, reinterpret_cast<const char*>(type));
+#ifdef WITH_VARIANT
+	cassertm(data.index() == (int)Type::object, (S + data.index()).c_str());
+	return std::get<(int)Type::object>(data);
+#else
+	cassertm(type == Type::object, (S + (int)type).c_str());
 	return *aarray;
-}
-
-Array<JSON>
-JSON::int_query(String q) const
-{
-	Array<JSON> ret;
-	//const JSON& res;
-
-	if (q.empty()) {
-		ret << *this;
-		return ret;
-	}
-
-	switch(q.c_str()[0]) {
-	case '.':
-		{
-			// find until next '[' or '.'
-			String part;
-			char tmp[] = {'\0', '\0'};
-			int pos;
-			for (pos = 0; pos < q.length(); pos++) {
-				if (q.c_str()[pos] == '.') {
-					break;
-				}
-				if (q.c_str()[pos] == '[') {
-					break;
-				}
-				tmp[0] = q.c_str()[pos];
-				part += tmp;
-			}
-
-			String remain;
-			remain = &(q.c_str()[pos]);
-			ret << (*this)[part].int_query(remain);
-		}
-		break;
-	case '[':
-		{
-			// find until next ']'
-			String part;
-			char tmp[] = {'\0', '\0'};
-			int pos;
-			bool found = false;
-			for (pos = 0; pos < q.length(); pos++) {
-				if (q.c_str()[pos] == ']') {
-					found = true;
-					break;
-				}
-				tmp[0] = q.c_str()[pos];
-				part += tmp;
-			}
-			if (!found) {
-				TError("missing ']' in query string");
-			}
-			{
-				String remain;
-				remain = &(q.c_str()[pos]);
-				// check if quoted
-				if (remain.c_str()[0] == '\'') {
-					// remove quotes
-					if (remain.c_str()[remain.length()] != '\'') {
-						TError("missing end of string");
-					}
-					remain = remain.cut(1, remain.length() - 1);
-					ret << (*this)[part].int_query(remain);
-				} else {
-					// assume numeric
-					int64_t num = remain.getll();
-					ret << (*this)[num].int_query(remain);
-				}
-			}
-		}
-		break;
-	default:
-		TError("invalid query string");
-	}
-
-	return ret;
-}
-
-Array<JSON>
-JSON::query(const String& q) const
-{
-	Array<JSON> ret;
-	//const JSON& res;
-
-	if (q.c_str()[0] != '$') {
-		TError("JSONPATH doesn't start with an '$'");
-	}
-
-	String iq;
-	iq = &(q.c_str()[1]);
-
-	ret = int_query(iq);
-
-	return ret;
+#endif
 }
 
 bool
-JSON::is_null() const
+JSON::is_null() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::null);
 }
 
 bool
-JSON::is_string() const
+JSON::is_string() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::string);
 }
 
 bool
-JSON::is_object() const
+JSON::is_object() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::object);
 }
 
 bool
-JSON::is_number() const
+JSON::is_number() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::number);
 }
 
 bool
-JSON::is_array() const
+JSON::is_array() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::array);
 }
 
 bool
-JSON::is_boolean() const
+JSON::is_boolean() const noexcept
 {
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 	return (type == Type::boolean);
 }
 
 bool
-JSON::is_type(const String& t) const
+JSON::is_type(const String& t) const noexcept
 {
 	bool ret = false;
+#ifdef WITH_VARIANT
+	auto type = (Type)data.index();
+#endif
 
 	if (t == "string" && type == Type::string) {
 		ret = true;
@@ -1010,8 +1235,19 @@ JSON::is_type(const String& t) const
 }
 
 JSON::Type
-JSON::get_type() const
+JSON::get_type() const noexcept
 {
-	return type;
+#ifdef WITH_VARIANT
+	int type = data.index();
+#endif
+	return (Type)type;
+}
+
+String
+JSON::tinfo() const
+{
+	String ret;
+	ret << "(" << typeid(*this).name() << "@" << this << ")";
+	return ret;
 }
 

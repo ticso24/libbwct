@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/aarray.h $
- * $Date: 2022-05-11 00:54:26 +0200 (Wed, 11 May 2022) $
+ * $Date: 2025-06-10 19:26:00 +0200 (Tue, 10 Jun 2025) $
  * $Author: ticso $
- * $Rev: 45533 $
+ * $Rev: 49347 $
  */
 
 #ifndef _AARRAY
@@ -14,198 +14,292 @@
 
 #include "tool.h"
 
-template <class T>
-class AArray : public Base {
+template <class T, class K = String, size_t buckets = 4>
+class AArray {
 private:
 	class Elem {
 	public:
-		T* data;
+		std::pair<K, T> data;
 		Elem* next;
-		String key;
 
-		Elem() {
-			data = NULL;
+		Elem() noexcept {
 			next = NULL;
 		}
-		~Elem() {
+		~Elem() noexcept {
 			delete next;
-			delete data;
 		}
 	};
-	Elem** elems;
-	int buckets;
-	int getbucket(uint32_t h) const;
+	Elem* elems[buckets];
+	static constexpr int getbucket(uint32_t h) noexcept;
 
 public:
-#if 0
+
+	template <bool IsConst>
 	struct Iterator {
 		using iterator_category = std::forward_iterator_tag;
+		using value_type      = typename std::conditional_t<IsConst, const std::pair<K, T>, std::pair<K, T>>;
+		using reference         = value_type&;
+		using pointer           = value_type*;
 
-		Iterator(AArray<T>* ref, Elem* elem, int bucket) {
-			a = ref;
-			e = elem;
+	private:
+		AArray<T, K, buckets>* a;
+		Elem* e;
+		size_t b;
+
+	public:
+		Iterator(const Iterator&) = default;
+		Iterator& operator=(const Iterator&) = default;
+
+		template<bool WasConst, class = std::enable_if_t<IsConst && !WasConst>>
+		Iterator(const Iterator<WasConst>& rhs) {
+			a = rhs.a;
+			e = rhs.e;
+			b = rhs.b;
+		}
+
+		Iterator(const AArray<T, K, buckets>* ref, const Elem* elem, int bucket) {
+			a = const_cast<AArray<T, K, buckets>*>(ref);
+			e = const_cast<Elem*>(elem);
 			b = bucket;
 		}
 
-		struct retVals {
-			String& key;
-			T& data;
-		};
-		retVals operator*() const {
-			return retVals{e->key, *(e->data)};
+		template<bool WasConst, class = std::enable_if_t<IsConst && !WasConst>>
+		Iterator& operator=(const Iterator<WasConst>& rhs) {
+			a = rhs.a;
+			e = rhs.e;
+			b = rhs.b;
+			return (*this);
 		}
+
+		pointer operator->() const {
+			return &(e->data);
+		}
+
+		reference operator*() const {
+			return (e->data);
+		}
+
 		Iterator& operator++() {
 			e = e->next;
 			while (e == NULL) {
 				b++;
-				if (b >= a->buckets) {
-					return *this;
+				if (b >= buckets) {
+					e = NULL;
+					break;
 				}
+				e = a->elems[b];
 			}
 			return *this;
 		}
+
 		Iterator operator++(int) {
 			Iterator tmp = *this;
 			++(*this);
 			return tmp;
 		}
+
 		friend bool operator== (const Iterator& a, const Iterator& b) {
-			return a.elem == b.elem;
-		}
-		friend bool operator!= (const Iterator& a, const Iterator& b) {
-			return a.elem != b.elem;
+			return a.e == b.e;
 		}
 
-	private:
-		AArray<T>* a;
-		Elem* e;
-		int b;
+		friend bool operator!= (const Iterator& a, const Iterator& b) {
+			return a.e != b.e;
+		}
+
 	};
 
-	Iterator begin() {
-		if (elems == NULL) {
-			return Iterator(this, NULL, buckets);
-		}
-		return Iterator(this, elems[0], 0);
-	}
-	Iterator end() {
-		return Iterator(this, NULL, buckets);
-	}
-#endif
+	using iterator = Iterator<false>;
+	using const_iterator = Iterator<true>;
 
-	AArray(int buckets = 4);
-	AArray(AArray<T>&& src);
-	AArray(const AArray<T>& src);
-	~AArray();
-	void empty();
-	void del(const String& key);
-	T& operator[](const String& key);
-	const T& operator[](const String& key) const;
-	const AArray<T>& operator=(const AArray<T>& rhs);
-	const AArray<T>& operator=(AArray<T>&& rhs);
-	bool exists(const String& key) const;
-	T* getexistingptr(const String& key);
-	Array<String> getkeys(bool sorted = false) const;
-	Array<String> getfiltkeys(bool (*func) (const T&), bool sorted = false) const;
+	iterator begin() {
+		Elem* elem;
+		size_t bucket;
+		for (bucket = 0; bucket < buckets; ++bucket) {
+			elem = elems[bucket];
+			if (elem != NULL) {
+				break;
+			}
+		}
+		return iterator(this, elem, bucket);
+	}
+
+	iterator end() {
+		return iterator(this, NULL, buckets);
+	}
+
+	const_iterator cbegin() const {
+		Elem* elem;
+		size_t bucket;
+		for (bucket = 0; bucket < buckets; ++bucket) {
+			elem = elems[bucket];
+			if (elem != NULL) {
+				break;
+			}
+		}
+		return const_iterator(this, elem, bucket);
+	}
+
+	const_iterator cend() const {
+		return const_iterator(this, NULL, buckets);
+	}
+
+	const_iterator begin() const {
+		return cbegin();
+	}
+
+	const_iterator end() const {
+		return cend();
+	}
+
+	AArray() noexcept;
+	AArray(AArray<T, K, buckets>&& src) noexcept;
+	AArray(const AArray<T, K, buckets>& src);
+	AArray(std::initializer_list<std::pair<K, T>> ilist);
+	~AArray() noexcept;
+	void clear() noexcept;
+	int erase(const K& key) noexcept;
+	iterator erase(iterator pos);
+	iterator erase(const_iterator pos);
+	iterator erase(iterator first, iterator last);
+	iterator erase(const_iterator first, const_iterator last);
+	bool empty() noexcept;
+	T& operator[](const K& key);
+	const T& operator[](const K& key) const;
+	const AArray<T, K, buckets>& operator=(const AArray<T, K, buckets>& rhs);
+	const AArray<T, K, buckets>& operator=(AArray<T, K, buckets>&& rhs) noexcept;
+	const AArray<T, K, buckets>& operator=(std::initializer_list<std::pair<K, T>> ilist);
+	bool exists(const K& key) const noexcept;
+	T* getexistingptr(const K& key) noexcept;
+	Array<K> getkeys(bool sorted = false) const;
+	Array<K> getfiltkeys(bool (*func) (const T&), bool sorted = false) const;
+	Array<std::pair<K*, T*>> getpairs(bool sorted = false) const;
+	template <typename... Args>
+	void emplace(Args&&... args);
+	String tinfo() const;
+	int size() const {
+		int ret = -1;
+		for (auto& x: (*this)) {
+			++ret;
+		}
+		return ret;
+	}
+	iterator insert(const T& value);
+	iterator insert(T&& value );
+	iterator insert(const_iterator pos, const T& value);
+	iterator insert(const_iterator pos, T&& value );
+	template<class InputIt>
+	iterator insert(const_iterator pos, InputIt first, InputIt last);
+	iterator insert(const_iterator pos, std::initializer_list<T> ilist);
 };
 
-template <class T>
-AArray<T>::AArray(int buckets)
+template <class T, class K, size_t buckets>
+AArray<T, K, buckets>::AArray() noexcept
 {
-	this->buckets = buckets;
-	elems = new Elem*[buckets];
-	bzero(elems, sizeof(Elem*) * buckets);
+	bzero(elems, sizeof(void*) * buckets);
 }
 
-template <class T>
-AArray<T>::~AArray()
+template <class T, class K, size_t buckets>
+AArray<T, K, buckets>::~AArray() noexcept
 {
-	if (elems != NULL) {
-		empty();
-		delete[] elems;
-		elems = NULL;
+	clear();
+}
+
+template <class T, class K, size_t buckets>
+AArray<T, K, buckets>::AArray(AArray<T, K, buckets>&& src) noexcept
+{
+	for (size_t i = 0; i < buckets; i++) {
+		elems[i] = src.elems[i];
+		src.elems[i] = NULL;
 	}
 }
 
-template <class T>
-AArray<T>::AArray(AArray<T>&& src)
+template <class T, class K, size_t buckets>
+AArray<T, K, buckets>::AArray(const AArray<T, K, buckets>& src)
 {
-	buckets = src.buckets;
-	elems = src.elems;
-	src.elems = NULL;
-}
-
-template <class T>
-AArray<T>::AArray(const AArray<T>& src)
-{
-	buckets = src.buckets;
-	elems = NULL;
-
 	try {
-		elems = new Elem*[buckets];
 		bzero(elems, sizeof(Elem*) * buckets);
-		for (int i = 0; i < buckets; i++) {
+		for (size_t i = 0; i < buckets; i++) {
 			if (src.elems[i] != NULL) {
 				elems[i] = new Elem;
-				elems[i]->key = src.elems[i]->key;
-				elems[i]->data = new T;
-				*elems[i]->data = *src.elems[i]->data;
+				elems[i]->data = src.elems[i]->data;
 				Elem** ep = &elems[i];
 				Elem* se = src.elems[i]->next;
 				while (se != NULL) {
 					(*ep)->next = new Elem;
-					(*ep)->next->key = se->key;
-					(*ep)->next->data = new T;
-					*(*ep)->next->data = *se->data;
+					(*ep)->next->data = se->data;
 					ep = &(*ep)->next;
 					se = se->next;
 				}
 			}
 		}
 	} catch(...) {
-		empty();
+		clear();
 		throw;
 	}
 }
 
-template <class T>
-const AArray<T>&
-AArray<T>::operator=(AArray<T>&& rhs)
+template <class T, class K, size_t buckets>
+AArray<T, K, buckets>::AArray(std::initializer_list<std::pair<K, T>> ilist)
 {
-	empty();
-	delete[] elems;
-	elems = NULL;
+	try {
+		bzero(elems, sizeof(void*) * buckets);
+		for (auto& x: ilist) {
+			auto h = std::hash<K>{}(x.first);
+			int bucket = getbucket(h);
 
-	buckets = rhs.buckets;
-	elems = rhs.elems;
+			Elem* e = elems[bucket];
+			if (e == NULL) {
+				e = new Elem;
+				elems[bucket] = e;
+				e->data = x;
+			} else {
+				while (e != NULL) {
+					if (e->data.first == x.first) {
+						break;
+					}
+					if (e->next == NULL) {
+						e->next = new Elem;
+						e->next->data = x;
+						break;
+					}
+					e = e->next;
+				}
+			}
+		}
+	} catch(...) {
+		clear();
+		throw;
+	}
+}
 
-	rhs.elems = NULL;
+template <class T, class K, size_t buckets>
+const AArray<T, K, buckets>&
+AArray<T, K, buckets>::operator=(AArray<T, K, buckets>&& rhs) noexcept
+{
+	clear();
+
+	for (size_t i = 0; i < buckets; i++) {
+		elems[i] = rhs.elems[i];
+		rhs.elems[i] = NULL;
+	}
+
 	return *this;
 }
 
-template <class T>
-const AArray<T>&
-AArray<T>::operator=(const AArray<T>& rhs)
+template <class T, class K, size_t buckets>
+const AArray<T, K, buckets>&
+AArray<T, K, buckets>::operator=(const AArray<T, K, buckets>& rhs)
 {
-	empty();
-	buckets = rhs.buckets;
-	delete[] elems;
-	elems = NULL;
-	elems = new Elem*[buckets];
-	bzero(elems, sizeof(Elem*) * buckets);
-	for (int i = 0; i < buckets; i++) {
+	clear();
+	for (size_t i = 0; i < buckets; i++) {
 		if (rhs.elems[i] != NULL) {
 			elems[i] = new Elem;
-			elems[i]->key = rhs.elems[i]->key;
-			elems[i]->data = new T;
-			*elems[i]->data = *rhs.elems[i]->data;
+			elems[i]->data = rhs.elems[i]->data;
 			Elem** ep = &elems[i];
 			Elem* se = rhs.elems[i]->next;
 			while (se != NULL) {
 				(*ep)->next = new Elem;
-				(*ep)->next->key = se->key;
-				(*ep)->next->data = new T;
-				*(*ep)->next->data = *se->data;
+				(*ep)->next->data = se->data;
 				ep = &(*ep)->next;
 				se = se->next;
 			}
@@ -214,24 +308,64 @@ AArray<T>::operator=(const AArray<T>& rhs)
 	return *this;
 }
 
-template <class T>
-void
-AArray<T>::empty()
+template <class T, class K, size_t buckets>
+const AArray<T, K, buckets>&
+AArray<T, K, buckets>::operator=(std::initializer_list<std::pair<K, T>> ilist)
 {
-	if (elems != NULL) {
-		for (int i = 0; i < buckets; i++) {
-			delete elems[i];
-			elems[i] = NULL;
+	for (auto& x: ilist) {
+		auto h = std::hash<K>{}(x.first);
+		int bucket = getbucket(h);
+
+		Elem* e = elems[bucket];
+		if (e == NULL) {
+			e = new Elem;
+			elems[bucket] = e;
+			e->data = x;
+		} else {
+			while (e != NULL) {
+				if (e->data.first == x.first) {
+					break;
+				}
+				if (e->next == NULL) {
+					e->next = new Elem;
+					e->next->data = x;
+					break;
+				}
+				e = e->next;
+			}
 		}
+	}
+	return *this;
+}
+
+template <class T, class K, size_t buckets>
+void
+AArray<T, K, buckets>::clear() noexcept
+{
+	for (size_t i = 0; i < buckets; i++) {
+		delete elems[i];
+		elems[i] = NULL;
 	}
 }
 
-template <class T>
-int
-AArray<T>::getbucket(uint32_t h) const
+template <class T, class K, size_t buckets>
+bool
+AArray<T, K, buckets>::empty() noexcept
 {
-	int ret;
-	uint32_t mask;
+	for (size_t i = 0; i < buckets; i++) {
+		if (elems[i] != NULL) {
+			return false;
+		}
+	}
+	return true;
+}
+
+template <class T, class K, size_t buckets>
+constexpr int
+AArray<T, K, buckets>::getbucket(uint32_t h) noexcept
+{
+	int ret = 0;
+	uint32_t mask = 0;
 
 	switch (buckets) {
 		case 2:
@@ -254,21 +388,21 @@ AArray<T>::getbucket(uint32_t h) const
 			ret = h & mask;
 			break;
 		default:
-			TError("unsupported buckets");
+			static_assert("unsupported buckets");
 	}
 	return ret;
 }
 
-template <class T>
-Array<String>
-AArray<T>::getfiltkeys(bool (*func) (const T&), bool sorted) const
+template <class T, class K, size_t buckets>
+Array<K>
+AArray<T, K, buckets>::getfiltkeys(bool (*func) (const T&), bool sorted) const
 {
-	Array<String> ret;
-	for (int i = 0; i < buckets; i++) {
+	Array<K> ret;
+	for (size_t i = 0; i < buckets; i++) {
 		Elem* e = elems[i];
 		while (e != NULL) {
-			if (func(*(e->data))) {
-				ret << e->key;
+			if (func(e->data.second)) {
+				ret.emplace_back(e->data.first);
 			}
 			e = e->next;
 		}
@@ -281,15 +415,15 @@ AArray<T>::getfiltkeys(bool (*func) (const T&), bool sorted) const
 	return ret;
 }
 
-template <class T>
-Array<String>
-AArray<T>::getkeys(bool sorted) const
+template <class T, class K, size_t buckets>
+Array<K>
+AArray<T, K, buckets>::getkeys(bool sorted) const
 {
-	Array<String> ret;
-	for (int i = 0; i < buckets; i++) {
+	Array<K> ret;
+	for (size_t i = 0; i < buckets; i++) {
 		Elem* e = elems[i];
 		while (e != NULL) {
-			ret << e->key;
+			ret.emplace_back(e->data.first);
 			e = e->next;
 		}
 	}
@@ -301,66 +435,173 @@ AArray<T>::getkeys(bool sorted) const
 	return ret;
 }
 
-template <class T>
-void
-AArray<T>::del(const String& key)
+template <class T, class K, size_t buckets>
+Array<std::pair<K*, T*>>
+AArray<T, K, buckets>::getpairs(bool sorted) const
 {
-	uint32_t h = crc_hash(key.c_str(), key.length(), 0);
+	Array<std::pair<K*, T*>> ret;
+	for (size_t i = 0; i < buckets; i++) {
+		Elem* e = elems[i];
+		while (e != NULL) {
+			ret.emplace_back(std::make_pair<K*, T*> (&(e->data.first), &(e->data.second)));
+			e = e->next;
+		}
+	}
+
+	if (sorted) {
+		auto helper = [] (const std::pair<K*, T*>** a, const std::pair<K*, T*>** b) {
+			int ret = 0;
+			if (*(**a).first < *(**b).first) {
+				ret = -1;
+			} else if (*(**a).first > *(**b).first) {
+				ret = +1;
+			}
+			return ret;
+		};
+		ret.sort(helper);
+	}
+
+	return ret;
+}
+
+template <class T, class K, size_t buckets>
+int
+AArray<T, K, buckets>::erase(const K& key) noexcept
+{
+	auto h = std::hash<K>{}(key);
 	int bucket = getbucket(h);
 
 	Elem** ep = &elems[bucket];
 	while (*ep != NULL) {
 		Elem* e = *ep;
-		if (e->key == key) {
+		if (e->data.first == key) {
 			*ep = e->next;
 			e->next = NULL;
 			delete e;
+			return 1;
 		}
 		ep = &e->next;
 	}
+	return 0;
 }
 
-template <class T>
-T&
-AArray<T>::operator[](const String& key)
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::erase(iterator pos)
 {
-	uint32_t h = crc_hash(key.c_str(), key.length(), 0);
+	auto ret = pos + 1;
+	erase(*pos.first);
+	return ret;
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::erase(const_iterator pos)
+{
+	auto ret = pos + 1;
+	erase(*pos.first);
+	return ret;
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::erase(iterator first, iterator last)
+{
+	// TODO optimize
+	Array<K> tmp;
+	for (auto x = first; x != last; ++x) {
+		tmp.pushback(x->first);
+	}
+
+	for (auto& x: tmp) {
+		erase(std::move(x));
+	}
+	return last;
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::erase(const_iterator first, const_iterator last)
+{
+	// TODO optimize
+	Array<K> tmp;
+	for (auto x = first; x != last; ++x) {
+		tmp.pushback(x->first);
+	}
+
+	for (auto& x: tmp) {
+		erase(std::move(x));
+	}
+	return last;
+}
+
+template <class T, class K, size_t buckets>
+template <typename... Args>
+void
+AArray<T, K, buckets>::emplace(Args&&... args)
+{
+	auto tmp = T(std::forward<Args>(args)...);
+	auto h = std::hash<K>{}(tmp.first);
 	int bucket = getbucket(h);
 
 	Elem* e = elems[bucket];
 	if (e == NULL) {
 		e = new Elem;
 		elems[bucket] = e;
-		e->key = key;
-		e->data = new T;
 	} else {
 		while (e != NULL) {
-			if (e->key == key) {
+			if (e->data.first == tmp.first) {
 				break;
 			}
 			if (e->next == NULL) {
 				e->next = new Elem;
-				e->next->key = key;
-				e->next->data = new T;
-				return *e->next->data;
+				return;
+			}
+			e = e->next;
+		}
+	}
+	e->data = std::move(tmp);
+}
+
+template <class T, class K, size_t buckets>
+T&
+AArray<T, K, buckets>::operator[](const K& key)
+{
+	auto h = std::hash<K>{}(key);
+	int bucket = getbucket(h);
+
+	Elem* e = elems[bucket];
+	if (e == NULL) {
+		e = new Elem;
+		elems[bucket] = e;
+		e->data.first = key;
+	} else {
+		while (e != NULL) {
+			if (e->data.first == key) {
+				break;
+			}
+			if (e->next == NULL) {
+				e->next = new Elem;
+				e->next->data.first = key;
+				return e->next->data.second;
 			}
 			e = e->next;
 		}
 	}
 
-	return *e->data;
+	return e->data.second;
 }
 
-template <class T>
+template <class T, class K, size_t buckets>
 const T&
-AArray<T>::operator[](const String& key) const
+AArray<T, K, buckets>::operator[](const K& key) const
 {
-	uint32_t h = crc_hash(key.c_str(), key.length(), 0);
+	auto h = std::hash<K>{}(key);
 	int bucket = getbucket(h);
 
 	Elem* e = elems[bucket];
 	while (e != NULL) {
-		if (e->key == key) {
+		if (e->data.first == key) {
 			break;
 		}
 		e = e->next;
@@ -369,19 +610,19 @@ AArray<T>::operator[](const String& key) const
 		TError(String() + "key " + key + " does not exist");
 	}
 
-	return *e->data;
+	return e->data.second;
 }
 
-template <class T>
+template <class T, class K, size_t buckets>
 T*
-AArray<T>::getexistingptr(const String& key)
+AArray<T, K, buckets>::getexistingptr(const K& key) noexcept
 {
-	uint32_t h = crc_hash(key.c_str(), key.length(), 0);
+	auto h = std::hash<K>{}(key);
 	int bucket = getbucket(h);
 
 	Elem* e = elems[bucket];
 	while (e != NULL) {
-		if (e->key == key) {
+		if (e->data.first == key) {
 			break;
 		}
 		e = e->next;
@@ -390,25 +631,129 @@ AArray<T>::getexistingptr(const String& key)
 		return NULL;
 	}
 
-	return e->data;
+	return &e->data.second;
 }
 
-template <class T>
+template <class T, class K, size_t buckets>
 bool
-AArray<T>::exists(const String& key) const
+AArray<T, K, buckets>::exists(const K& key) const noexcept
 {
-	uint32_t h = crc_hash(key.c_str(), key.length(), 0);
+	auto h = std::hash<K>{}(key);
 	int bucket = getbucket(h);
 
 	Elem* e = elems[bucket];
 	while (e != NULL) {
-		if (e->key == key) {
+		if (e->data.first == key) {
 			return true;
 		}
 		e = e->next;
 	}
 
 	return false;
+}
+
+template <class T, class K, size_t buckets>
+String
+AArray<T, K, buckets>::tinfo() const
+{
+	String ret;
+	ret << "(" << typeid(*this).name() << "@" << this << ")";
+	return ret;
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(const T& value)
+{
+	auto h = std::hash<K>{}(value.first);
+	int bucket = getbucket(h);
+
+	Elem* e = elems[bucket];
+	if (e == NULL) {
+		e = new Elem;
+		elems[bucket] = e;
+		e->data = value;
+	} else {
+		while (e != NULL) {
+			if (e->data.first == value.first) {
+				e->data.second = value.second;
+				break;
+			}
+			if (e->next == NULL) {
+				e->next = new Elem;
+				e->next->data = value;
+				break;
+			}
+			e = e->next;
+		}
+	}
+
+	return iterator(this, e, bucket);
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(T&& value )
+{
+	auto h = std::hash<K>{}(value.first);
+	int bucket = getbucket(h);
+
+	Elem* e = elems[bucket];
+	if (e == NULL) {
+		e = new Elem;
+		elems[bucket] = e;
+		e->data = std::move(value);
+	} else {
+		while (e != NULL) {
+			if (e->data.first == value.first) {
+				e->data.second = std::move(value.second);
+				break;
+			}
+			if (e->next == NULL) {
+				e->next = new Elem;
+				e->next->data = std::move(value);
+				break;
+			}
+			e = e->next;
+		}
+	}
+
+	return iterator(this, e, bucket);
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(const_iterator pos, const T& value)
+{
+	return insert(value);
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(const_iterator pos, T&& value )
+{
+	return insert(std::move(value));
+}
+
+template <class T, class K, size_t buckets>
+template<class InputIt>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(const_iterator pos, InputIt first, InputIt last)
+{
+	for(auto i = first; i != last; ++i) {
+		return insert(*i);
+	}
+	return end();
+}
+
+template <class T, class K, size_t buckets>
+typename AArray<T, K, buckets>::iterator
+AArray<T, K, buckets>::insert(const_iterator pos, std::initializer_list<T> ilist)
+{
+	for(auto x: ilist) {
+		return insert(T(x));
+	}
+	return end();
 }
 
 #endif /* !_AARRAY */

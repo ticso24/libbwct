@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/fdhelper.h $
- * $Date: 2019-10-01 15:09:37 +0200 (Tue, 01 Oct 2019) $
+ * $Date: 2025-05-16 15:54:27 +0200 (Fri, 16 May 2025) $
  * $Author: ticso $
- * $Rev: 40730 $
+ * $Rev: 49233 $
  */
 
 #ifndef _FDHELPER
@@ -75,7 +75,7 @@ protected:
 public:
 	FTask();
 	~FTask();
-	FTask(const FTask& ft);
+	FTask(const FTask& ft) = delete;
 	void setfile(File *nfile);
 	virtual String tinfo() const;
 };

@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/fdhelper.cc $
- * $Date: 2019-10-01 17:13:02 +0200 (Tue, 01 Oct 2019) $
- * $Author: jk $
- * $Rev: 40740 $
+ * $Date: 2025-05-16 15:54:27 +0200 (Fri, 16 May 2025) $
+ * $Author: ticso $
+ * $Rev: 49233 $
  */
 
 #include "bwct.h"
@@ -337,11 +337,6 @@ FTask::FTask() {
 }
 
 FTask::~FTask() {
-}
-
-FTask::FTask(const FTask& ft) :
-	Thread(ft)
-{
 }
 
 String

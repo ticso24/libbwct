@@ -4,14 +4,46 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/string.cc $
- * $Date: 2021-07-14 16:54:23 +0200 (Wed, 14 Jul 2021) $
+ * $Date: 2025-06-08 14:27:14 +0200 (Sun, 08 Jun 2025) $
  * $Author: ticso $
- * $Rev: 44520 $
+ * $Rev: 49327 $
  */
 
 #include "bwct.h"
 
-#define initsize 8
+void
+String::free_data() noexcept
+{
+	if (buflen > directsize) {
+		free(data);
+	}
+	data = NULL;
+	free(udata);
+	udata = NULL;
+	buflen = directsize;
+	ln = 0;
+	sdata[0] = '\0';
+}
+
+char *
+String::get_data() noexcept
+{
+	if (buflen <= directsize) {
+		return sdata;
+	} else {
+		return data;
+	}
+}
+
+const char *
+String::get_data() const noexcept
+{
+	if (buflen <= directsize) {
+		return sdata;
+	} else {
+		return data;
+	}
+}
 
 void
 String::rebufsize(size_t len)
@@ -24,7 +56,7 @@ String::rebufsize(size_t len)
 
 	if (nlen > buflen) {
 		if (nlen >= 1024) {
-			nlen = nlen + 1024;
+			nlen = (nlen + 1024) & 0xfffffc00;
 		} else {
 			nlen = 8;
 			while(len > nlen) {
@@ -33,12 +65,28 @@ String::rebufsize(size_t len)
 			nlen <<= 1;
 		}
 		abort_assert(nlen >= len);
-		data = (char*)realloc(data, nlen);
-		buflen = nlen;
-		if (data == NULL) {
-			throw std::bad_alloc();
+		char* tmp;
+		if (buflen <= directsize) {
+			tmp = (char*)malloc(nlen);
+			if (tmp == NULL) {
+				throw std::bad_alloc();
+			}
+			strcpy(tmp, sdata);
+		} else {
+			tmp = (char*)realloc(data, nlen);
+			if (tmp == NULL) {
+				throw std::bad_alloc();
+			}
 		}
+		data = tmp;
+		buflen = nlen;
 	}
+}
+
+void
+String::set_size(size_t len)
+{
+	rebufsize(len + 1);
 }
 
 void
@@ -46,17 +94,18 @@ String::bufsize(size_t len)
 {
 	size_t nlen = len;
 
-	free(data);
+	free_data();
+	if (len <= directsize) {
+		return;
+	}
 	if (nlen >= 1024) {
-		nlen = nlen + 1024;
+		nlen = (nlen + 1024) & 0xfffffc00;
 	} else {
-		for (int i = 0; i < 10; i++) {
-			nlen >>= 1;
-			if (nlen == 0) {
-				nlen = 1 << (i + 2);
-				break;
-			}
+		nlen = 8;
+		while(len > nlen) {
+			nlen <<= 1;
 		}
+		nlen <<= 1;
 	}
 	abort_assert(nlen >= len);
 	data = (char*)malloc(nlen);
@@ -66,13 +115,11 @@ String::bufsize(size_t len)
 	buflen = nlen;
 }
 
-String::String()
+String::String() noexcept
 {
-	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(initsize);
-	*data = '\0';
+	buflen = directsize;
+	sdata[0] = '\0';
 	ln = 0;
 }
 
@@ -80,186 +127,187 @@ String::String(const char* rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	if (rhs == NULL) {
 		log ("rhs == NULL");
 		rhs = "(null)";
 	}
 	size_t rhslen = strlen(rhs);
 	bufsize(rhslen + 1);
-	strcpy(data, rhs);
+	strcpy(get_data(), rhs);
 	ln = rhslen;
 }
 
-String::String(const String &rhs) : Base()
+String::String(const String &rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = rhs.type;
+	buflen = directsize;
 	bufsize(rhs.ln + 1);
-	strcpy(data, rhs.data);
+	strcpy(get_data(), rhs.get_data());
 	ln = rhs.ln;
 }
 
-String::String(String &&rhs) : Base()
+String::String(String &&rhs) noexcept
 {
 	data = NULL;
-	bufsize(initsize);
-	*data = '\0';
+	udata = NULL;
+	buflen = directsize;
+	bufsize(directsize);
+	get_data()[0]= '\0';
 	std::swap(data, rhs.data);
 	udata = rhs.udata;
 	rhs.udata = NULL;
-	type = rhs.type;
 	ln = rhs.ln;
 	rhs.ln = 0;
 	buflen = rhs.buflen;
 }
 
-String::String(bool rhs)
+String::String(bool rhs) noexcept
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(2);
+	buflen = directsize;
 	// no if/else as workaround for CLANG in case of uninitialized rhs
-	data[0] = '0';
-	data[1] = '\0';
 	if (rhs) {
-		data[0] = '1';
+		sdata[0] = '1';
+	} else {
+		sdata[0] = '0';
 	}
-	ln = strlen(data);
+	sdata[1] = '\0';
+	ln = 1;
 }
 
 String::String(char rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	buflen = directsize;
+	bufsize(5); // -128 + \0
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(short rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	buflen = directsize;
+	bufsize(7); // -32768 + \0
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(int rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(long rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(long long rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(unsigned char rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	buflen = directsize;
+	bufsize(4); // 255 + \0
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(unsigned short rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
-	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	buflen = directsize;
+	bufsize(6); // 65535 + \0
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(unsigned int rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(unsigned long rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(unsigned long long rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 }
 
 String::String(double rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(1024);
-	sprintf(data, "%.100G", rhs);
-	ln = strlen(data);
+	sprintf(get_data(), "%.100G", rhs);
+	ln = strlen(get_data());
 }
 
 String::String(const void *rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	bufsize(32);
-	sprintf(data, "%p", rhs);
-	ln = strlen(data);
+	sprintf(get_data(), "%p", rhs);
+	ln = strlen(get_data());
 }
 
 String::String(File rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 	Stat st(rhs);
 	bufsize(st.s.size + 1);
-	data[st.s.size] = '\0';
+	get_data()[st.s.size] = '\0';
 	ssize_t len;
-	len = rhs.read(data, st.s.size);
+	len = rhs.read(get_data(), st.s.size);
 	if (len != (ssize_t)st.s.size) {
 		TError("failed to read file");
 	}
@@ -271,36 +319,34 @@ String::String(const JSON& rhs)
 	data = NULL;
 	udata = NULL;
 	ln = 0;
-	*this = std::move(rhs.get_str());
+	*this = rhs.get_str();
 }
 
 String::String(const Array<String>& rhs)
 {
 	data = NULL;
 	udata = NULL;
-	type = Type_Enum::plain;
+	buflen = directsize;
 
 	size_t rhssize = 0;
 	for (int i = 0; i <= rhs.max; i++) {
 		rhssize += rhs[i].ln;
 	}
 	bufsize(rhssize + 1);
-	data[0] = '\0';
+	char *d = get_data();
+	d[0] = '\0';
 	int size = 0;
 	for (int i = 0; i <= rhs.max; i++) {
-		strcpy(data + size, rhs[i].data);
+		strcpy(d + size, rhs[i].get_data());
 		size += rhs[i].ln;
-		if (i == 0) {
-			type = rhs[0].type;
-		}
-		if (rhs[i].ln != 0) {
-			if (type != rhs[i].type) {
-				TError(String("string types different"));
-			}
-			type = rhs[i].type;
-		}
 	}
 	ln = size;
+}
+
+void
+String::clear() noexcept
+{
+	free_data();
 }
 
 const String&
@@ -310,21 +356,17 @@ String::operator= (const Array<String>& rhs)
 	for (int i = 0; i <= rhs.max; i++) {
 		rhssize += rhs[i].ln;
 	}
+	if (rhssize == 0) {
+		free_data();
+		return *this;
+	}
 	bufsize(rhssize + 1);
-	data[0] = '\0';
+	char* d = get_data();
+	d[0] = '\0';
 	int size = 0;
 	for (int i = 0; i <= rhs.max; i++) {
-		strcpy(data + size, rhs[i].data);
+		strcpy(d + size, rhs[i].get_data());
 		size += rhs[i].ln;
-		if (i == 0) {
-			type = rhs[0].type;
-		}
-		if (rhs[i].ln != 0) {
-			if (type != rhs[i].type) {
-				TError(String("string types different"));
-			}
-			type = rhs[i].type;
-		}
 	}
 	ln = size;
 	return *this;
@@ -333,23 +375,33 @@ String::operator= (const Array<String>& rhs)
 const String&
 String::operator= (const String &rhs)
 {
-	free(data);
-	data = NULL;
-	type = rhs.type;
+	free_data();
+	if (rhs.ln == 0) {
+		return *this;
+	}
 	bufsize(rhs.ln + 1);
-	strcpy(data, rhs.data);
+	strcpy(get_data(), rhs.get_data());
 	ln = rhs.ln;
 	return *this;
 }
 
 const String&
-String::operator= (String &&rhs)
+String::operator= (String &&rhs) noexcept
 {
-	std::swap(data, rhs.data);
-	std::swap(udata, rhs.udata);
-	std::swap(type, rhs.type);
-	std::swap(ln, rhs.ln);
-	std::swap(buflen, rhs.buflen);
+	if (rhs.ln <= directsize) {
+		free_data();
+		if (rhs.ln == 0) {
+			return *this;
+		}
+		bufsize(rhs.ln + 1);
+		strcpy(get_data(), rhs.get_data());
+		ln = rhs.ln;
+	} else {
+		std::swap(data, rhs.data);
+		std::swap(udata, rhs.udata);
+		std::swap(ln, rhs.ln);
+		std::swap(buflen, rhs.buflen);
+	}
 	return *this;
 }
 
@@ -367,12 +419,9 @@ String::operator= (const char *rhs)
 		log ("rhs == NULL");
 		rhs = "(null)";
 	}
-	type = Type_Enum::plain;
-	free(data);
-	data = NULL;
 	size_t rhslen = strlen(rhs);
 	bufsize(rhslen + 1);
-	strcpy(data, rhs);
+	strcpy(get_data(), rhs);
 	ln = rhslen;
 	return *this;
 }
@@ -380,15 +429,15 @@ String::operator= (const char *rhs)
 const String&
 String::operator= (bool rhs)
 {
-	bufsize(2);
+	bufsize(directsize);
 	// no if/else as workaround for CLANG in case of uninitialized rhs
-	data[0] = '0';
-	data[1] = '\0';
 	if (rhs) {
-		data[0] = '1';
+		sdata[0] = '1';
+	} else {
+		sdata[0] = '0';
 	}
+	sdata[1] = '\0';
 	ln = 1;
-	type = Type_Enum::plain;
 	return *this;
 }
 
@@ -396,9 +445,8 @@ const String&
 String::operator= (unsigned int rhs)
 {
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
-	type = Type_Enum::plain;
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 	return *this;
 }
 
@@ -406,9 +454,8 @@ const String&
 String::operator= (unsigned long rhs)
 {
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
-	type = Type_Enum::plain;
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 	return *this;
 }
 
@@ -416,9 +463,8 @@ const String&
 String::operator= (unsigned long long rhs)
 {
 	bufsize(32);
-	sprintf(data, "%lld", LL(rhs));
-	ln = strlen(data);
-	type = Type_Enum::plain;
+	sprintf(get_data(), "%lld", LL(rhs));
+	ln = strlen(get_data());
 	return *this;
 }
 
@@ -426,9 +472,8 @@ const String&
 String::operator= (double rhs)
 {
 	bufsize(1024);
-	sprintf(data, "%.100G", rhs);
-	ln = strlen(data);
-	type = Type_Enum::plain;
+	sprintf(get_data(), "%.100G", rhs);
+	ln = strlen(get_data());
 	return *this;
 }
 
@@ -436,9 +481,8 @@ const String&
 String::operator= (const void *rhs)
 {
 	bufsize(32);
-	sprintf(data, "%p", rhs);
-	ln = strlen(data);
-	type = Type_Enum::plain;
+	sprintf(get_data(), "%p", rhs);
+	ln = strlen(get_data());
 	return *this;
 }
 
@@ -453,16 +497,29 @@ String::operator= (File rhs)
 const String&
 String::operator= (const JSON& rhs)
 {
-	*this = std::move(rhs.get_str());
+	*this = rhs.get_str();
+	return *this;
+}
+
+const String&
+String::operator=(const std::string& rhs) {
+	const char* rstr = rhs.c_str();
+	const auto rlen = rhs.length();
+
+	bufsize(rlen + 1);
+	strcpy(get_data(), rstr);
+	ln = rlen;
 	return *this;
 }
 
 bool
-String::operator< (const String &rhs) const {
+String::operator< (const String &rhs) const noexcept {
+	const char* d = get_data();
+	const char* d2 = rhs.get_data();
 	for (uint64_t i = 0; i <= ln && i <= rhs.ln; i++) {
-		if (data[i] > rhs.data[i]) {
+		if (d[i] > d2[i]) {
 			return false;
-		} else if (data[i] < rhs.data[i]) {
+		} else if (d[i] < d2[i]) {
 			return true;
 		}
 	}
@@ -470,11 +527,13 @@ String::operator< (const String &rhs) const {
 }
 
 bool
-String::operator> (const String &rhs) const {
+String::operator> (const String &rhs) const noexcept {
+	const char* d = get_data();
+	const char* d2 = rhs.get_data();
 	for (uint64_t i = 0; i <= ln && i <= rhs.ln; i++) {
-		if (data[i] > rhs.data[i]) {
+		if (d[i] > d2[i]) {
 			return true;
-		} else if (data[i] < rhs.data[i]) {
+		} else if (d[i] < d2[i]) {
 			return false;
 		}
 	}
@@ -482,12 +541,12 @@ String::operator> (const String &rhs) const {
 }
 
 bool
-String::operator<= (const String &rhs) const {
+String::operator<= (const String &rhs) const noexcept {
 	return !(*this > rhs);
 }
 
 bool
-String::operator>= (const String &rhs) const {
+String::operator>= (const String &rhs) const noexcept {
 	return !(*this < rhs);
 }
 
@@ -499,39 +558,23 @@ String::join (const Array<String>& rhs, const String &bind)
 		rhssize += rhs[i].ln;
 	}
 	if (rhs.max < 0) {
-		bufsize(2);
-		data[0] = '\0';
-		ln = 0;
+		free_data();
 		return *this;
 	}
 	bufsize(rhssize + bind.ln * rhs.max + 1);
-	data[0] = '\0';
+	char* d = get_data();
+	d[0] = '\0';
 	size_t size = 0;
 	for (int i = 0; i <= rhs.max; i++) {
-		strcpy(data + size, rhs[i].data);
+		strcpy(d + size, rhs[i].get_data());
 		size += rhs[i].ln;
 		if (i < rhs.max) {
-			strcpy(data + size, bind.data);
+			strcpy(d + size, bind.get_data());
 			size += bind.ln;
 		}
-		if (i == 0) {
-			type = rhs[0].type;
-		}
-		if (rhs[i].ln != 0) {
-			if (type != rhs[i].type) {
-				TError(String("string types different"));
-			}
-			type = rhs[i].type;
-		}
 	}
-	ln = strlen(data);
+	ln = strlen(d);
 	return *this;
-}
-
-size_t
-String::length() const
-{
-	return ln;
 }
 
 size_t
@@ -553,11 +596,12 @@ String::u_str()
 		throw std::bad_alloc();
 	}
 	size_t pos = 0;
+	char* da = get_data();
 	for (size_t i = 0; i < ln; i++) {
 		uint32_t c = 0;
 		bool valid = false;
 		int rem = ln - i;
-		uint8_t d = data[i];
+		uint8_t d = da[i];
 		if (d <= 127) {
 			/// single byte encoding
 			c = d;
@@ -565,7 +609,7 @@ String::u_str()
 		} else if ((d & 0xe0) == 0xc0 && rem >= 2) {
 			/// 2 byte encoding
 			c |= (d & 0x1f) << 6;
-			d = data[++i];
+			d = da[++i];
 			if ((d & 0xc0) == 0x80) {
 				c |= d & 0x3f;
 				valid = true;
@@ -573,10 +617,10 @@ String::u_str()
 		} else if ((d & 0xf0) == 0xe0 && rem >= 3) {
 			/// 3 byte encoding
 			c |= (d & 0x0f) << 12;
-			d = data[++i];
+			d = da[++i];
 			if ((d & 0xc0) == 0x80) {
 				c |= (d & 0x3f) << 6;
-				d = data[++i];
+				d = da[++i];
 				if ((d & 0xc0) == 0x80) {
 					c |= d & 0x3f;
 					valid = true;
@@ -585,13 +629,13 @@ String::u_str()
 		} else if ((d & 0xf8) == 0xf0 && rem >= 4) {
 			/// 4 byte encoding
 			c |= (d & 0x07) << 18;
-			d = data[++i];
+			d = da[++i];
 			if ((d & 0xc0) == 0x80) {
 				c |= (d & 0x3f) << 12;
-				d = data[++i];
+				d = da[++i];
 				if ((d & 0xc0) == 0x80) {
 					c |= (d & 0x3f) << 6;
-					d = data[++i];
+					d = da[++i];
 					if ((d & 0xc0) == 0x80) {
 						c |= d & 0x3f;
 						valid = true;
@@ -609,53 +653,55 @@ String::u_str()
 }
 
 const char *
-String::c_str() const
+String::c_str() const noexcept
 {
-	return data;
+	return get_data();
 }
 
-String::~String()
+String::~String() noexcept
 {
+	if (buflen > directsize) {
+		free(data);
+	}
 	free(udata);
-	free(data);
 }
 
 bool
-String::operator== (const String &rhs) const
+String::operator== (const String &rhs) const noexcept
 {
 	if (ln != rhs.ln) {
 		return false;
 	}
-	return (strcmp(data, rhs.data) == 0);
+	return (strcmp(get_data(), rhs.get_data()) == 0);
 }
 
 bool
-String::operator== (const char *rhs) const
+String::operator== (const char *rhs) const noexcept
 {
 	if (rhs == NULL) {
 		log ("rhs == NULL");
 		rhs = "(null)";
 	}
-	return (strcmp(data, rhs) == 0);
+	return (strcmp(get_data(), rhs) == 0);
 }
 
 bool
-String::operator!= (const String &rhs) const
+String::operator!= (const String &rhs) const noexcept
 {
 	if (ln != rhs.ln) {
 		return true;
 	}
-	return (strcmp(data, rhs.data) != 0);
+	return (strcmp(get_data(), rhs.get_data()) != 0);
 }
 
 bool
-String::operator!= (const char *rhs) const
+String::operator!= (const char *rhs) const noexcept
 {
 	if (rhs == NULL) {
 		log ("rhs == NULL");
 		rhs = "(null)";
 	}
-	return (strcmp(data, rhs) != 0);
+	return (strcmp(get_data(), rhs) != 0);
 }
 
 String
@@ -673,7 +719,7 @@ String::operator+(String &&rhs) const {
 }
 
 void
-String::add_memory(void* data, size_t len)
+String::add_memory(const void* data, size_t len)
 {
 	if (len == 0) {
 		return;
@@ -685,19 +731,19 @@ String::add_memory(void* data, size_t len)
 		}
 	}
 	rebufsize(ln + len + 1);
-	memcpy(this->data + ln, data, len);
+	memcpy(this->get_data() + ln, data, len);
 	ln += len;
-	this->data[ln] = '\0';
+	this->get_data()[ln] = '\0';
 }
 
 String&
 String::operator+= (const String &rhs)
 {
-	if (ln == 0) {
-		type = rhs.type;
+	if (rhs.ln == 0) {
+		return *this;
 	}
 	rebufsize(ln + rhs.ln + 1);
-	strcpy(data + ln, rhs.data);
+	strcpy(get_data() + ln, rhs.get_data());
 	ln += rhs.ln;
 	return *this;
 }
@@ -705,15 +751,17 @@ String::operator+= (const String &rhs)
 String&
 String::operator+= (String &&rhs)
 {
-	if (ln == 0) {
-		std::swap(type, rhs.type);
+	if (rhs.ln == 0) {
+		return *this;
+	}
+	if (ln == 0 && buflen == directsize) {
 		std::swap(ln, rhs.ln);
 		std::swap(data, rhs.data);
 		std::swap(udata, rhs.udata);
 		std::swap(buflen, rhs.buflen);
 	} else {
 		rebufsize(ln + rhs.ln + 1);
-		strcpy(data + ln, rhs.data);
+		strcpy(get_data() + ln, rhs.get_data());
 		ln += rhs.ln;
 	}
 	return *this;
@@ -737,7 +785,7 @@ String::operator+= (const char *rhs)
 	}
 	size_t rhslen = strlen(rhs);
 	rebufsize(ln + rhslen + 1);
-	strcpy(data + ln, rhs);
+	strcpy(get_data() + ln, rhs);
 	ln += rhslen;
 	return *this;
 }
@@ -824,55 +872,43 @@ void
 String::resize(size_t rhs)
 {
 	if (rhs < ln) {
-		data[rhs] = 0;
+		get_data()[rhs] = '\0';
 		ln = rhs;
 	}
 }
 
 bool
-String::empty() const
+String::empty() const noexcept
 {
 	return (ln == 0);
 }
-
-size_t
-String::begin() const
-{
-	return 0;
-};
-
-size_t
-String::end() const
-{
-	return ln;
-};
 
 const char&
 String::operator[](const size_t i) const
 {
 	cassert(i <= ln);
-	return data[i];
+	return get_data()[i];
 };
 
 char&
 String::operator[](const size_t i)
 {
 	cassert(i <= ln);
-	return data[i];
+	return get_data()[i];
 };
 
 void
-String::lower()
+String::lower() noexcept
 {
 	for (size_t i = 0; i < ln; i++)
-		data[i] = tolower(data[i]);
+		get_data()[i] = tolower(get_data()[i]);
 }
 
 void
-String::upper()
+String::upper() noexcept
 {
 	for (size_t i = 0; i < ln; i++)
-		data[i] = toupper(data[i]);
+		get_data()[i] = toupper(get_data()[i]);
 }
 
 bool
@@ -883,28 +919,28 @@ String::strncmp(int64_t frompos, const String &rhs) const
 	if (ln + frompos < rhs.ln) {
 		return false;
 	}
-	return (::strncmp(data + frompos, rhs.data, rhs.ln) == 0);
+	return (::strncmp(get_data() + frompos, rhs.get_data(), rhs.ln) == 0);
 }
 
 bool
-String::strncmp(const String &rhs, size_t len) const
+String::strncmp(const String &rhs, size_t len) const noexcept
 {
-	return (::strncmp(data, rhs.data, len) == 0);
+	return (::strncmp(get_data(), rhs.get_data(), len) == 0);
 }
 
 bool
-String::strncmp(const String &rhs) const
+String::strncmp(const String &rhs) const noexcept
 {
 	if (ln < rhs.ln) {
 		return false;
 	}
-	return (::strncmp(data, rhs.data, rhs.ln) == 0);
+	return (::strncmp(get_data(), rhs.get_data(), rhs.ln) == 0);
 }
 
 bool
-String::strncmp(const char *rhs) const
+String::strncmp(const char *rhs) const noexcept
 {
-	return (::strncmp(data, rhs, strlen(rhs)) == 0);
+	return (::strncmp(get_data(), rhs, strlen(rhs)) == 0);
 }
 
 String
@@ -928,7 +964,6 @@ String::u_cut(size_t begin, ssize_t end) const
 	}
 
 	String ret;
-	ret.type = type;
 
 	char d[] = {0, '\0'};
 
@@ -991,7 +1026,6 @@ String
 String::cut(size_t begin, ssize_t end) const
 {
 	String ret;
-	ret.type = type;
 
 	if (begin > ln) {
 		throw Error(String("String::cut begin beyond size"));
@@ -999,10 +1033,10 @@ String::cut(size_t begin, ssize_t end) const
 	if (end > (ssize_t)ln) {
 		throw Error(String("String::cut end beyond size"));
 	}
-	ret = data + begin;
+	ret = get_data() + begin;
 	if (end >= 0) {
-		ret.data[end - begin + 1] = '\0';
-		ret.ln = strlen(ret.data);
+		ret.get_data()[end - begin + 1] = '\0';
+		ret.ln = strlen(ret.get_data());
 	}
 	return ret;
 }
@@ -1016,7 +1050,7 @@ String::CSVsplit() const
 	const char *pos;
 	int i = 0;
 
-	for (pos = data; *pos != '\0'; pos++) {
+	for (pos = get_data(); *pos != '\0'; pos++) {
 		if (*pos == '"') {
 			quote = !quote;
 		} else {
@@ -1025,9 +1059,9 @@ String::CSVsplit() const
 				tmpres = "";
 			} else {
 				tmpres.rebufsize(tmpres.ln + 2);
-				tmpres.data[tmpres.ln] = *pos;
+				tmpres.get_data()[tmpres.ln] = *pos;
 				tmpres.ln++;
-				tmpres.data[tmpres.ln] = '\0';
+				tmpres.get_data()[tmpres.ln] = '\0';
 			}
 		}
 	}
@@ -1046,7 +1080,7 @@ String::linesplit() const
 	bool moredata = false;
 	char *pos;
 	char *lastpos;
-	for (pos = lastpos = buf.data; pos < (buf.data + buf.ln); pos++) {
+	for (pos = lastpos = buf.get_data(); pos < (buf.get_data() + buf.ln); pos++) {
 		if (pos[0] == '\n') {
 			pos[0] = '\0';
 			if (pos[1] == '\r') {
@@ -1084,25 +1118,24 @@ String::strsplit(String delim) const
 	Array<String> ret;
 	String tmp;
 	char *match;
-	char *start = data;
+	char *start = (char*)get_data();
 	char *oldstart;
 	size_t length;
 
 	do {
-		match = strstr(start, delim.data);
+		match = strstr(start, delim.get_data());
 		oldstart = start;
 		if (match != NULL) {
 			start = &match[delim.ln];
 			length = match - oldstart;
 		} else {
-			length = data + ln - oldstart;
+			length = get_data() + ln - oldstart;
 		}
 		tmp.bufsize(length + 1);
 		for (size_t i = 0; i < length; i++) {
-			tmp.data[i] = oldstart[i];
+			tmp.get_data()[i] = oldstart[i];
 		}
-		tmp.data[length] = '\0';
-		tmp.type = type;
+		tmp.get_data()[length] = '\0';
 		tmp.ln = length;
 		ret[ret.max + 1] = std::move(tmp);
 	} while (match != NULL);
@@ -1120,12 +1153,11 @@ String::split(String delim) const
 	String copy(*this);
 
 	i = 0;
-	tmp = copy.data;
+	tmp = copy.get_data();
 	do {
 		res = strsep(&tmp, delim.c_str());
 		if (res != NULL) {
 			ret[i] = res;
-			ret[i].type = type;
 			i++;
 		}
 	} while (res != NULL);
@@ -1143,17 +1175,15 @@ String::split(String delim, int64_t len) const
 	String copy(*this);
 
 	i = 0;
-	tmp = copy.data;
+	tmp = copy.get_data();
 	do {
 		if (i + 1 == len && tmp != NULL) {
 			ret[i] = tmp;
-			ret[i].type = type;
 			res = NULL;
 		} else {
 			res = strsep(&tmp, delim.c_str());
 			if (res != NULL) {
 				ret[i] = res;
-				ret[i].type = type;
 				i++;
 			}
 		}
@@ -1163,30 +1193,30 @@ String::split(String delim, int64_t len) const
 }
 
 bool
-String::contains(const String& rhs) const
+String::contains(const String& rhs) const noexcept
 {
-	if (strstr(data, rhs.data) != NULL) {
+	if (strstr(get_data(), rhs.get_data()) != NULL) {
 		return true;
 	}
 	return false;
 }
 
 String
-String::trim() const
+String::trim() const noexcept
 {
 	String ret;
 	ssize_t first = 0;
 	ssize_t last = ln - 1;
 
 	for (ssize_t i = 0; i < (ssize_t)ln; i++) {
-		if (data[i] == ' ') {
+		if (get_data()[i] == ' ') {
 			first = i + 1;
 		} else {
 			break;
 		}
 	}
 	for (ssize_t i = ln - 1; i >= 0; i--) {
-		if (data[i] == ' ') {
+		if (get_data()[i] == ' ') {
 			last = i - 1;
 		} else {
 			break;
@@ -1202,14 +1232,14 @@ String::trim() const
 }
 
 String
-String::trimstart(const char value) const
+String::trimstart(const char value) const noexcept
 {
 	String ret;
 	ssize_t first = 0;
 	ssize_t last = ln - 1;
 
 	for (ssize_t i = 0; i < (ssize_t)ln; i++) {
-		if (data[i] == value) {
+		if (get_data()[i] == value) {
 			first = i + 1;
 		} else {
 			break;
@@ -1225,14 +1255,14 @@ String::trimstart(const char value) const
 }
 
 String
-String::trimend(const char value) const
+String::trimend(const char value) const noexcept
 {
 	String ret;
 	ssize_t first = 0;
 	ssize_t last = ln - 1;
 
 	for (ssize_t i = ln - 1; i >= 0; i--) {
-		if (data[i] == value) {
+		if (get_data()[i] == value) {
 			last = i - 1;
 		} else {
 			break;
@@ -1253,10 +1283,10 @@ String::replacefirst(const String &search, const String &replace)
 	char *match;
 	String tmp;
 
-	match = strstr(data, search.data);
+	match = strstr(get_data(), search.get_data());
 	if (match != NULL) {
 		*match = '\0';
-		tmp = data;
+		tmp = get_data();
 		tmp += replace;
 		tmp += (match + search.ln);
 		*this = std::move(tmp);
@@ -1273,15 +1303,15 @@ String::replace(const String &search, const String &replace)
 	String tmp;
 	int matches = 0;
 
-	match = strstr(data, search.data);
-	remaining = data;
+	match = strstr(get_data(), search.get_data());
+	remaining = get_data();
 	while (match != NULL) {
 		matches++;
 		*match = '\0';
 		tmp += remaining;
 		tmp += replace;
 		remaining = match + search.ln;
-		match = strstr(remaining, search.data);
+		match = strstr(remaining, search.get_data());
 	}
 	if (matches > 0) {
 		tmp += remaining;
@@ -1291,29 +1321,28 @@ String::replace(const String &search, const String &replace)
 }
 
 double
-String::getd() const
+String::getd() const noexcept
 {
 	double ret;
 
-	ret = strtod(data, NULL);
+	ret = strtod(get_data(), NULL);
 	return ret;
 }
 
 long long
-String::getll() const
+String::getll() const noexcept
 {
 	long long ret;
 	char* res;
 
-	ret = strtoll(data, &res, 10);
-	if (res == data) {
+	ret = strtoll(get_data(), &res, 10);
+	if (res == get_data()) {
 		//TError(S + "non numeric input data in" + *this);
 		log(S + "non numeric input data in " + *this);
 	}
 	return ret;
 }
 
-#if 0
 String
 String::re_subst(const String& re)
 {
@@ -1334,7 +1363,7 @@ String::re_subst(const String& re)
 
 	res = regcomp(&rx, lh.c_str(), REG_EXTENDED);
 	if (res != 0) {
-		a_ptr<char> error;
+		aa_ptr<char> error;
 		error = new char[err_bufsize];
 		regerror(res, &rx, error.get(), err_bufsize);
 		//regfree(&rx);
@@ -1342,14 +1371,14 @@ String::re_subst(const String& re)
 	}
 	pmatch.rm_so = 0;
 	pmatch.rm_eo = ln;
-	res = regexec(&rx, data, 0, &pmatch, 0);
+	res = regexec(&rx, get_data(), 0, &pmatch, 0);
 	if (res == REG_NOMATCH) {
 		regfree(&rx);
 		return (*this);
 	}
 
 	if (res != 0) {
-		a_ptr<char> error;
+		aa_ptr<char> error;
 		error = new char[err_bufsize];
 		regerror(res, &rx, error.get(), err_bufsize);
 		regfree(&rx);
@@ -1438,7 +1467,7 @@ String::re_comp(const String& re) const
 	//log(S + "compare " + *this + " with " + re);
 	res = regcomp(&rx, re.c_str(), REG_EXTENDED);
 	if (res != 0) {
-		a_ptr<char> error;
+		aa_ptr<char> error;
 		error = new char[err_bufsize];
 		regerror(res, &rx, error.get(), err_bufsize);
 		//regfree(&rx);
@@ -1446,9 +1475,9 @@ String::re_comp(const String& re) const
 	}
 	pmatch.rm_so = 0;
 	pmatch.rm_eo = ln;
-	res = regexec(&rx, data, 0, &pmatch, 0);
+	res = regexec(&rx, get_data(), 0, &pmatch, 0);
 	if (res != 0 && res != REG_NOMATCH) {
-		a_ptr<char> error;
+		aa_ptr<char> error;
 		error = new char[err_bufsize];
 		regerror(res, &rx, error.get(), err_bufsize);
 		regfree(&rx);
@@ -1461,26 +1490,36 @@ String::re_comp(const String& re) const
 	}
 	return true;
 }
-#endif
 
 String
 String::printf(String format, ...)
 {
 	va_list ap;
-	free(data);
+	free_data();
+	char *tmp;
 	va_start(ap, format);
-	vasprintf(&data, format.c_str(), ap);
+	int res = vasprintf(&tmp, format.c_str(), ap);
 	va_end(ap);
-	ln = strlen(data);
-	buflen = ln + 1;
+	if (res < 0) {
+		throw std::bad_alloc();
+	}
+	ln = strlen(tmp);
+	if ((ln + 1) <= directsize) {
+		buflen = directsize;
+		strcpy(sdata, tmp);
+		free(tmp);
+	} else {
+		data = tmp;
+		buflen = ln + 1;
+	}
 	return *this;
 }
 
 bool
-String::is_numeric()
+String::is_numeric() noexcept
 {
 	for (size_t i = 0; i < ln; i++) {
-		if (data[i] < '0' || data[i] > '9') {
+		if (get_data()[i] < '0' || get_data()[i] > '9') {
 			return false;
 		}
 	}
@@ -1492,10 +1531,10 @@ String::reverse()
 {
 	char tmp[ln + 1];
 	for (int64_t i = ln - 1, j = 0; i >= 0; i--, j++) {
-		tmp[j] = data[i];
+		tmp[j] = get_data()[i];
 	}
 	tmp[ln] = '\0';
-	strcpy(data, tmp);
+	strcpy(get_data(), tmp);
 }
 
 bool
@@ -1504,22 +1543,22 @@ String::test_utf() const
 	if (ln != 0) {
 		for (uint64_t i = 0; i <= ln; i++) {
 			int continuation = 0;
-			if ((data[i] & 0xe0) == 0xc0) {
+			if ((get_data()[i] & 0xe0) == 0xc0) {
 				// 2 byte encoding
 				continuation = 1;
-			} else if ((data[i] & 0xf0) == 0xe0) {
+			} else if ((get_data()[i] & 0xf0) == 0xe0) {
 				// 3 byte encoding
 				continuation = 2;
-			} else if ((data[i] & 0xf8) == 0xf0) {
+			} else if ((get_data()[i] & 0xf8) == 0xf0) {
 				// 4 byte encoding
 				continuation = 3;
-			} else if (data[i] & 0x80) {
+			} else if (get_data()[i] & 0x80) {
 				return false;
 			}
 			for (int j = 0; j < continuation; j++) {
 				// test for continuation characters
 				i++;
-				if (i > ln || ((data[i] & 0xc0) != 0x80)) {
+				if (i > ln || ((get_data()[i] & 0xc0) != 0x80)) {
 					return false;
 				}
 			}
@@ -1528,3 +1567,72 @@ String::test_utf() const
 	return true;
 }
 
+SArray<uint8_t>
+String::hex_to_bytes() const
+{
+	SArray<uint8_t> ret;
+
+	for (size_t i = 0; (i + 1) < ln; i += 2) {
+		uint8_t b = 0;
+		char c;
+		c = get_data()[i];
+		if (c >= '0' && c <= '9') {
+			b |= c - '0';
+		} else if (c >= 'a' &&  c <= 'f') {
+			b |= c - 'a' + 10;
+		} else if (c >= 'A' &&  c <= 'F') {
+			b |= c - 'A' + 10;
+		}
+		b <<= 4;
+		c = get_data()[i + 1];
+		if (c >= '0' && c <= '9') {
+			b |= c - '0';
+		} else if (c >= 'a' &&  c <= 'f') {
+			b |= c - 'a' + 10;
+		} else if (c >= 'A' &&  c <= 'F') {
+			b |= c - 'A' + 10;
+		}
+		ret << b;
+	}
+
+	return ret;
+}
+
+String
+String::tinfo() const
+{
+	String ret;
+	ret << "(" << typeid(*this).name() << "@" << this << ")";
+	return ret;
+}
+
+void
+String::log(int priority, const String& str) const noexcept
+{
+	syslog(priority, "%s %s", str.c_str(), tinfo().c_str());
+}
+
+void
+String::log(int priority, const char *str) const noexcept
+{
+	syslog(priority, "%s %s", str, tinfo().c_str());
+}
+
+void
+String::log(const String& str) const noexcept
+{
+	log(LOG_DEBUG, str);
+}
+
+void
+String::log(const char *str) const noexcept
+{
+	log(LOG_DEBUG, str);
+}
+
+std::ostream&
+operator<< (std::ostream& out, const String& rh)
+{
+	out.write(rh.get_data(), rh.ln);
+	return out;
+}

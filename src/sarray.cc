@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/sarray.cc $
- * $Date: 2021-07-09 11:18:21 +0200 (Fri, 09 Jul 2021) $
+ * $Date: 2021-08-14 18:21:54 +0200 (Sat, 14 Aug 2021) $
  * $Author: ticso $
- * $Rev: 44487 $
+ * $Rev: 44745 $
  */
 
 #include "bwct.h"

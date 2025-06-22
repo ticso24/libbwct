@@ -4,15 +4,15 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/tool.h $
- * $Date: 2021-07-16 15:09:29 +0200 (Fri, 16 Jul 2021) $
+ * $Date: 2025-05-26 13:11:59 +0200 (Mon, 26 May 2025) $
  * $Author: ticso $
- * $Rev: 44524 $
+ * $Rev: 49280 $
  */
 
 #ifndef _TOOL
 #define _TOOL
 
-#include <utility>
+#include <pthread_np.h>
 
 class Base;
 class String;
@@ -20,6 +20,9 @@ class Mutex;
 
 template <class T>
 class Array;
+
+template <class T>
+class SArray;
 
 template <class T>
 class List;
@@ -30,7 +33,7 @@ class List;
 #define wassert(test)
 #define cassert(test)
 #define cassertm(test, msg)
-#endif /* !DEBUG */
+#endif /* !BWCT_DEBUG */
 
 #define dbg_stacksize() {									\
 	pthread_attr_t attr;									\
@@ -142,16 +145,20 @@ class Base {
 private:
 	volatile int refcount;
 public:
-	void log(int priority, const String& str) const;
-	void log(int priority, const char *str) const;
-	void log(const String& str) const;
-	void log(const char *str) const;
+	void log(int priority, const String& str) const noexcept;
+	void log(int priority, const char *str) const noexcept;
+	void log(const String& str) const noexcept;
+	void log(const char *str) const noexcept;
 	virtual void check() const;
-	Base();
-	virtual ~Base();
-	void addref();
-	void delref();
-	int getref() const
+	Base() noexcept { refcount = 0; };
+	Base(const Base& rh) noexcept { refcount = 0; };
+	Base(Base&& rh) noexcept { refcount = 0; };
+	Base& operator=(const Base& rh) noexcept { return *this; };
+	Base& operator=(Base&& rh) noexcept { return *this; };
+	virtual ~Base() noexcept;
+	void addref() noexcept;
+	void delref() noexcept;
+	int getref() const noexcept
 	{
 		return refcount;
 	}
@@ -178,6 +185,20 @@ public:
 			syslog(LOG_INFO, "Error thrown: %s", msg.c_str());
 		}
 #endif
+	}
+	Error(const Error& rh) {
+		msg = rh.msg;
+	}
+	Error(Error&& rh) noexcept {
+		msg = std::move(rh.msg);
+	}
+	Error& operator= (const Error& rh) {
+		msg = rh.msg;
+		return *this;
+	}
+	Error& operator= (Error&& rh) {
+		msg = std::move(rh.msg);
+		return *this;
 	}
 	~Error() throw() {
 	}
@@ -252,49 +273,116 @@ if (!(test)) {								\
 template <class T>
 class a_ptr : public Base {
 protected:
-	const a_ptr& operator=(const a_ptr &src);
-	a_ptr(const a_ptr &src);
-	T& operator[](int i);
+	T& operator[](int i) noexcept;
 private:
 	T* ptr;
 public:
-	a_ptr(T* nptr) {
+	a_ptr() noexcept {
+		ptr = NULL;
+	}
+	a_ptr(const a_ptr& rh) = delete;
+	a_ptr(a_ptr&& rh) noexcept {
+		ptr = rh.ptr;
+		rh.ptr = NULL;
+	}
+	a_ptr(T* nptr) noexcept {
 		abort_assert(nptr != NULL);
 		ptr = nptr;
 	}
-	a_ptr() {
-		ptr = NULL;
+	a_ptr& operator=(const a_ptr& rh) = delete;
+	a_ptr& operator=(a_ptr&& rh) noexcept {
+		ptr = rh.ptr;
+		rh.ptr = NULL;
 	}
-	bool isinit() const {
+	bool isinit() const noexcept {
 		return (ptr != NULL);
 	}
-	const T* operator->() const {
+	const T* operator->() const noexcept {
 		abort_assert(isinit());
 		return ptr;
 	}
-	T* operator->() {
+	T* operator->() noexcept {
 		abort_assert(isinit());
 		return ptr;
 	}
-	~a_ptr() {
+	~a_ptr() noexcept {
 		delete ptr;
 		ptr = NULL;
 	}
-	T* get() {
+	T* get() noexcept {
 		abort_assert(isinit());
 		return ptr;
 	}
-	const T* get() const {
+	const T* get() const noexcept {
 		abort_assert(isinit());
 		return ptr;
 	}
-	void del() {
+	void del() noexcept {
 		delete ptr;
 		ptr = NULL;
 	}
-	T* operator=(T* nptr) {
+	T* operator=(T* nptr) noexcept {
 		abort_assert(nptr != NULL);
 		delete ptr;
+		ptr = nptr;
+		return ptr;
+	}
+};
+
+template <class T>
+class aa_ptr : public Base {
+protected:
+	T& operator[](int i) noexcept;
+private:
+	T* ptr;
+public:
+	aa_ptr() noexcept {
+		ptr = NULL;
+	}
+	aa_ptr(const aa_ptr& src) = delete;
+	aa_ptr(aa_ptr&& src) noexcept {
+		ptr = src.ptr;
+		src.ptr = NULL;
+	}
+	aa_ptr(T* nptr) noexcept {
+		abort_assert(nptr != NULL);
+		ptr = nptr;
+	}
+	aa_ptr& operator=(const aa_ptr& src) = delete;
+	aa_ptr& operator=(aa_ptr&& src) noexcept {
+		ptr = src.ptr;
+		src.ptr = NULL;
+	}
+	bool isinit() const noexcept {
+		return (ptr != NULL);
+	}
+	const T* operator->() const noexcept {
+		abort_assert(isinit());
+		return ptr;
+	}
+	T* operator->() noexcept {
+		abort_assert(isinit());
+		return ptr;
+	}
+	~aa_ptr() noexcept {
+		delete[] ptr;
+		ptr = NULL;
+	}
+	T* get() noexcept {
+		abort_assert(isinit());
+		return ptr;
+	}
+	const T* get() const noexcept {
+		abort_assert(isinit());
+		return ptr;
+	}
+	void del() noexcept {
+		delete[] ptr;
+		ptr = NULL;
+	}
+	T* operator=(T* nptr) noexcept {
+		abort_assert(nptr != NULL);
+		delete[] ptr;
 		ptr = nptr;
 		return ptr;
 	}
@@ -305,31 +393,31 @@ class a_refptr : public Base {
 private:
 	T* ptr;
 public:
-	a_refptr(const a_refptr &src) : Base () {
+	a_refptr(const a_refptr &src) noexcept : Base () {
 		ptr = src.ptr;
 		if (ptr != NULL) {
 			ptr->addref();
 		}
 	}
-	a_refptr(a_refptr &&src) : Base () {
+	a_refptr(a_refptr &&src) noexcept : Base () {
 		ptr = src.ptr;
 		src.ptr = NULL;
 	}
-	a_refptr(T* nptr) {
+	a_refptr(T* nptr) noexcept {
 		abort_assert(nptr != NULL);
 		ptr = nptr;
 		ptr->addref();
 	}
-	a_refptr() {
+	a_refptr() noexcept {
 		ptr = NULL;
 	}
-	~a_refptr() {
+	~a_refptr() noexcept {
 		if (ptr != NULL) {
 			ptr->delref();
 			ptr = NULL;
 		}
 	}
-	const a_refptr& operator=(const a_refptr &src) {
+	const a_refptr& operator=(const a_refptr &src) noexcept {
 		if (ptr != NULL) {
 			ptr->delref();
 		}
@@ -339,11 +427,11 @@ public:
 		}
 		return *this;
 	}
-	const a_refptr& operator=(a_refptr &&src) {
+	const a_refptr& operator=(a_refptr &&src) noexcept {
 		std::swap(ptr, src.ptr);
 		return *this;
 	}
-	int isinit() const {
+	int isinit() const noexcept {
 		return (ptr != NULL);
 	}
 	const T* operator->() const {
@@ -361,14 +449,14 @@ public:
 		}
 		return ptr;
 	}
-	T* get() {
+	T* get() noexcept {
 		if (ptr == NULL) {
 			ptr = new T;
 			ptr->addref();
 		}
 		return ptr;
 	}
-	T& geto() {
+	T& geto() noexcept {
 		if (ptr == NULL) {
 			ptr = new T;
 			ptr->addref();
@@ -383,7 +471,7 @@ public:
 		}
 		return ptr;
 	}
-	T* operator=(T* nptr) {
+	T* operator=(T* nptr) noexcept {
 		abort_assert(nptr != NULL);
 		T* tmp = ptr;
 		ptr = nptr;
@@ -393,7 +481,7 @@ public:
 		}
 		return ptr;
 	}
-	void del() {
+	void del() noexcept {
 		if (ptr != NULL) {
 			ptr->delref();
 		}
@@ -427,17 +515,17 @@ String get_strhash(SHA1_Hash hash);
 String get_base64hash(SHA1_Hash hash);
 String get_strhmac256(const String& key, const String& data);
 
-extern Mutex fetch_mtx;
-void downloadURL(const String& URL, const String& path, bool cert_check = true);
 String base64_encode(void* data, size_t length); // MIME (RFC 2045), RFC 3548 and RFC 4648 compliant
 
-uint16_t fasthash(const String& key);
+uint16_t fasthash(const String& key) noexcept;
 
-uint8_t nibbletobin(char rh);
+uint8_t nibbletobin(char rh) noexcept;
 
-uint32_t crc_hash(const void *key, uint32_t len, uint32_t hash);
+uint32_t crc_hash(const void *key, uint32_t len) noexcept;
 
 double getload();
+
+void call_external(Array<String>& args, bool dontwait = false);
 
 String get_strerror(int num);
 

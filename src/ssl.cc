@@ -4,18 +4,15 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/ssl.cc $
- * $Date: 2020-05-05 15:19:12 +0200 (Tue, 05 May 2020) $
+ * $Date: 2025-06-08 14:27:14 +0200 (Sun, 08 Jun 2025) $
  * $Author: ticso $
- * $Rev: 42505 $
+ * $Rev: 49327 $
  */
 
 #ifdef HAVE_OPENSSL
-
 #include "bwct.h"
 #include <openssl/dh.h>
 #include <openssl/ssl.h>
-
-const size_t BUFSIZE = 256 * 1024;
 
 static Mutex *locks;
 
@@ -110,12 +107,22 @@ CSSL::Network::readn(void *vptr, size_t n) {
 				if ((nread = microread(readbuf, sizeof(readbuf))) < 0) {
 					if (sc == NULL) {
 						if (errno != EAGAIN && errno != EINTR) {
+							if ((n - nleft) != 0) {
+								return (n - nleft);
+							}
 							return(nread);
 						}
 						waitread();
 					} else {
 						int e = SSL_get_error(ssl, nread);
 						switch (e) {
+						case SSL_ERROR_ZERO_RETURN:
+							if ((n - nleft) != 0) {
+								return (n - nleft);
+							}
+							return(0);
+						case SSL_ERROR_NONE:
+							break;
 						case SSL_ERROR_WANT_READ:
 							waitread();
 							break;
@@ -123,7 +130,10 @@ CSSL::Network::readn(void *vptr, size_t n) {
 							waitwrite();
 							break;
 						default:
-							return(nread);
+							if ((n - nleft) != 0) {
+								return (n - nleft);
+							}
+							return(0);
 						}
 					}
 				} else {
@@ -138,12 +148,19 @@ CSSL::Network::readn(void *vptr, size_t n) {
 				if ((nread = microread(ptr, nleft)) < 0) {
 					if (sc == NULL) {
 						if (errno != EAGAIN && errno != EINTR) {
-							return(nread);
+							return((n - nleft) + nread);
 						}
 						waitread();
 					} else {
 						int e = SSL_get_error(ssl, nread);
 						switch (e) {
+						case SSL_ERROR_ZERO_RETURN:
+							if ((n - nleft) != 0) {
+								return (n - nleft);
+							}
+							return(0);
+						case SSL_ERROR_NONE:
+							break;
 						case SSL_ERROR_WANT_READ:
 							waitread();
 							break;
@@ -151,7 +168,10 @@ CSSL::Network::readn(void *vptr, size_t n) {
 							waitwrite();
 							break;
 						default:
-							return(nread);
+							if ((n - nleft) != 0) {
+								return (n - nleft);
+							}
+							return(0);
 						}
 					}
 				} else {
@@ -176,12 +196,23 @@ CSSL::Network::writen(const void *vptr, size_t n) {
 		ssize_t nwritten;
 		if ((nwritten = microwrite(ptr, nleft)) < 0) {
 			if (sc == NULL) {
-				if (errno != EAGAIN && errno != EINTR)
+				if (errno != EAGAIN && errno != EINTR) {
+					if ((n - nleft) != 0) {
+						return (n - nleft);
+					}
 					return(nwritten);
+				}
 				waitwrite();
 			} else {
 				int e = SSL_get_error(ssl, nwritten);
 				switch (e) {
+				case SSL_ERROR_ZERO_RETURN:
+					if ((n - nleft) != 0) {
+						return (n - nleft);
+					}
+					return(0);
+				case SSL_ERROR_NONE:
+					break;
 				case SSL_ERROR_WANT_READ:
 					waitread();
 					break;
@@ -205,7 +236,7 @@ CSSL::Network::sendfile(File &infile) {
 	if (sc == NULL) {
 		return ::Network::Net::sendfile(infile);
 	}
-	a_ptr<char> buf;
+	aa_ptr<char> buf;
 	ssize_t bytessend;
 	ssize_t bytesread;
 
@@ -245,23 +276,36 @@ CSSL::Network::saccept() {
 			waitread();
 		} else if (e == SSL_ERROR_WANT_WRITE) {
 			waitwrite();
+		} else if (e == SSL_ERROR_NONE) {
 		} else {
 			throw Error(String("SSL: Error accepting on socket: ") +
 			    ERR_error_string(ERR_get_error(), NULL));
 		}
 		ERR_clear_error();
 	}
-	syslog(LOG_INFO, "SSL: negotiated cipher: %s", SSL_get_cipher(ssl));
+	syslog(LOG_INFO, "SSL: %s negotiated cipher: %s", SSL_get_version(ssl), SSL_get_cipher(ssl));
+	cipher = SSL_get_cipher(ssl);
+	tls_ver = SSL_get_version(ssl);
+	{
+		const unsigned char* data;
+		unsigned int len;
+		SSL_get0_alpn_selected(ssl, &data, &len);
+		if (data != NULL) {
+			ALPN_selected.add_memory(data, len);
+		} else {
+			ALPN_selected.clear();
+		}
+	}
 #if 0
 	x509 = SSL_get_peer_certificate(ssl);
 	syslog(LOG_INFO, "SSL: Certname %s", x509->name);
-	a_ptr<char> buf;
+	aa_ptr<char> buf;
 	buf = new char[256];
 	if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 	    NID_commonName, buf.get(), 256) <= 0)
 		throw Error(String("SSL: Error accepting on socket: ") +
 		    ERR_error_string(ERR_get_error(), NULL));
-#ifdef DEBUG_FIZON
+#ifdef BWCT_DEBUG
 	if (getpeername() != buf.get())
 		syslog(LOG_INFO, "asumed peername\"%s\" != certname\"%s\"",
 		    peername.c_str(), x509->name);
@@ -289,27 +333,51 @@ CSSL::Network::sconnect() {
 			waitread();
 		} else if (e == SSL_ERROR_WANT_WRITE) {
 			waitwrite();
+		} else if (e == SSL_ERROR_NONE) {
 		} else {
 			throw Error(String("SSL: Error connecting on socket: ") +
 			    ERR_error_string(ERR_get_error(), NULL));
 		}
 		ERR_clear_error();
 	}
-	syslog(LOG_INFO, "SSL: negotiated cipher: %s", SSL_get_cipher(ssl));
+	syslog(LOG_INFO, "SSL: %s negotiated cipher: %s", SSL_get_version(ssl), SSL_get_cipher(ssl));
+	cipher = SSL_get_cipher(ssl);
+	tls_ver = SSL_get_version(ssl);
 	x509 = SSL_get_peer_certificate(ssl);
-	a_ptr<char> buf;
+	aa_ptr<char> buf;
 	buf = new char[256];
 	if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 	    NID_commonName, buf.get(), 256) <= 0)
 		throw Error(String("SSL: Error connecting on socket: ") +
 		    ERR_error_string(ERR_get_error(), NULL));
 	syslog(LOG_INFO, "SSL: Certname %s", buf.get());
-#ifdef DEBUG_FIZON
+#ifdef BWCT_DEBUG
 	if (peername != buf.get())
 		syslog(LOG_INFO, "asumed peername\"%s\" != certname\"%s\"",
 		    peername.c_str(), buf.get());
 #endif
 	peername = buf.get();
+}
+
+String
+CSSL::Network::tinfo() const
+{
+	String ret;
+	String ALPN;
+	if (sc != NULL) {
+		ALPN << ", ALPN=" << ALPN_selected;
+	}
+/*
+	if ((sc != NULL) && !sc->ALPN_selected.clear()) {
+		ALPN << ", ALPN=" << sc->ALPN_selected;
+		String tmp;
+		tmp.join(sc->ALPN_offered, ",");
+		ALPN << " (" << tmp << ")";
+	}
+*/
+	ret << "(" << typeid(*this).name() << "@" << this <<
+	    ", fd=" << fd << ", peer=" << peeraddr << ", TLS=" << tls_ver <<", Cipher=" << cipher << ALPN << ")";
+	return ret;
 }
 
 void
@@ -332,6 +400,7 @@ CSSL::Listen::newcon(int clientfd) {
 	return new Network(clientfd);
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 // generated by "openssl dhparam -C 2236"
 static DH *get_dh2236()
 {
@@ -400,13 +469,16 @@ static DH *get_dh2236()
 
 	return(dh);
 }
+#endif
 
-CSSL::Context::Context(const String& keyfile, const String& certdir, const String& chainfile) {
-	sslContext = initCTX(keyfile, certdir, chainfile);
+CSSL::Context::Context(const String& keyfile, const String& certdir, const String& chainfile, Array<String> ALPN) {
+	sslContext = NULL;
+	sslContext = initCTX(keyfile, certdir, chainfile, ALPN);
 }
 
-SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, const String& chainfile) {
-	SSL_CTX *newsslContext;
+SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, const String& chainfile, Array<String> ALPN) {
+	SSL_CTX *newsslContext = NULL;
+	ALPN_options = ALPN;
 
 	// SSLv23_method handles SSLv2, SSLv3, TLSv1, TLSv1.1 and TLSv1.2, of
 	// which we later disable some unwanted
@@ -421,11 +493,13 @@ SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, co
 	try {
 		{
 			long options = 0;
-			// options |= SSL_OP_ALL;
+			options |= SSL_OP_ALL;
 			options |= SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION;
 			options |= SSL_OP_NO_TICKET;
 			options |= SSL_OP_NO_SSLv2;
 			options |= SSL_OP_NO_SSLv3;
+			options |= SSL_OP_NO_TLSv1;
+			options |= SSL_OP_NO_TLSv1_1;
 #ifdef SSL_OP_NO_COMPRESSION
 			options |= SSL_OP_NO_COMPRESSION;
 #endif
@@ -456,7 +530,7 @@ SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, co
 		if(!SSL_CTX_check_private_key(newsslContext))
 			throw Error(String() + "SSL: Private key "
 			    "does not match public key in cert " + ERR_error_string(ERR_get_error(), NULL));
-
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 		{
 			// setup diffie-hellman parameters
 			DH *dh = get_dh2236();
@@ -465,7 +539,11 @@ SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, co
 			}
 			DH_free(dh);
 		}
+#else
+		SSL_CTX_set_dh_auto(newsslContext, 1);
+#endif
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 		{
 			// setup elliptic curve diffie-hellman
 			EC_KEY *ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
@@ -477,30 +555,32 @@ SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, co
 			}
 			EC_KEY_free (ecdh);
 		}
+#endif
 
 		SSL_CTX_set_tlsext_servername_callback(newsslContext, SSLserverNameCallback_helper);
 		SSL_CTX_set_tlsext_servername_arg(newsslContext, this);
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 		SSL_CTX_set_tmp_rsa_callback(newsslContext, ssl_temp_rsa_cb);
-//		SSL_CTX_set_verify(newsslContext,
-//		    SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-//		    ssl_verify_cb);
+#endif
+//		SSL_CTX_set_verify(newsslContext, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, ssl_verify_cb);
 //		SSL_CTX_set_verify(newsslContext, SSL_VERIFY_PEER, ssl_verify_cb);
 		SSL_CTX_set_verify(newsslContext, SSL_VERIFY_NONE, NULL);
-		SSL_CTX_load_verify_locations(newsslContext,
-		    NULL, certdir.c_str());
+#ifdef WITH_SSL_KEYLOG
+		SSL_CTX_set_keylog_callback(newsslContext, SSL_CTX_keylog_cb);
+#endif
+		SSL_CTX_load_verify_locations(newsslContext, NULL, certdir.c_str());
 //		String ID_Context("FRT SSL Context");
 //		SSL_CTX_set_session_id_context(newsslContext, (const uint8_t*)ID_Context.c_str(), ID_Context.length());
 		SSL_CTX_set_session_cache_mode(newsslContext, SSL_SESS_CACHE_OFF);
 
-		// setup ciphers
-		// openssl ciphers "ciphers=AECDH:ECDH:ALL:\!aNULL:\!eNULL:\!LOW:\!EXP:\!RC2:\!RC4:\!DES:\!EDH"
-		//
-		// EDH disables DHE- ciphers.
-		// We need to exclude them completely as long as OpenSSL has the 512-bit downgrade unfixed
-		//
 		SSL_CTX_set_cipher_list(newsslContext,
-		    "AECDH:ECDH:ALL:!aNULL:!eNULL:!LOW:!EXP:!RC2:!RC4:!DES:!EDH");
+		    "EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:EECDH+aRSA+SHA384:EECDH+aRSA+SHA256:EECDH+aRSA+RC4:EECDH:EDH+aRSA:!RC4:!aNULL:!eNULL:!LOW:!3DES:!MD5:!EXP:!PSK:!SRP:!DSS");
+
+		if (ALPN.max >= 0) {
+			// setup ALPN callback
+			SSL_CTX_set_alpn_select_cb(newsslContext, alpn_select_proto_cb_helper, this);
+		}
 
 	} catch (...) {
 		SSL_CTX_free(newsslContext);
@@ -508,6 +588,36 @@ SSL_CTX* CSSL::Context::initCTX(const String& keyfile, const String& certdir, co
 		throw;
 	}
 	return newsslContext;
+}
+
+int
+CSSL::Context::alpn_select_proto_cb_helper(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen, void *arg)
+{
+	CSSL::Context* me = (CSSL::Context*) arg;
+	return me->alpn_select_proto_cb(ssl, out, outlen, in, inlen);
+}
+
+int
+CSSL::Context::alpn_select_proto_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen, const unsigned char *in, unsigned int inlen)
+{
+	Array<String> ALPN_offered;
+	for (unsigned int i = 0; (i < inlen) && ((i + in[i]) < inlen); i += in[i] + 1) {
+		String tmp;
+		tmp.add_memory(&in[i + 1], in[i]);
+		ALPN_offered << tmp;
+	}
+
+	for (int64_t i = 0; i <= ALPN_options.max; i++) {
+		for (int64_t j = 0; j <= ALPN_offered.max; j++) {
+			if(ALPN_options[i] == ALPN_offered[j]) {
+				*out = (const unsigned char *)ALPN_offered[j].c_str();
+				*outlen = ALPN_offered[j].length();
+				return SSL_TLSEXT_ERR_OK;
+			}
+		}
+	}
+
+	return SSL_TLSEXT_ERR_NOACK;
 }
 
 CSSL::Context::~Context() {
@@ -527,7 +637,30 @@ CSSL::Context::SetCerts(const AArray<String>& ncerts, const AArray<String>& ncer
 	for (int64_t i = 0; i <= certkeys.max; i++) {
 		SSL_CTX_free(sslContexts[certkeys[i]]);
 	}
-	sslContexts.empty();
+	sslContexts.clear();
+	// init subcontexts
+	auto cn = ncerts.getkeys();
+	Stat filestatus;
+	for (int64_t i = 0; i <= cn.max; i++) {
+		String certfile = certs[cn[i]];
+		if (!sslContexts.exists(certfile)) {
+			int ret = filestatus.lstat(certfile);
+			if (ret == 0 && filestatus.is_reg()) {
+				// setup a new sslContext
+				syslog(LOG_INFO, "SSL: loading certfile: %s for %s", certfile.c_str(), cn[i].c_str());
+				SSL_CTX* newsslContext = NULL;
+				newsslContext = initCTX(certfile, certfile, certfile, ALPN_options);
+				if (newsslContext == NULL) {
+					TError(S + "SSL: failed to load certfile: " + certfile);
+				}
+				sslContexts[certfile] = newsslContext;
+			} else {
+				syslog(LOG_EMERG, "SSL: loading certfile failed (not a regular file): %s for %s", certfile.c_str(), cn[i].c_str());
+			}
+		} else {
+			syslog(LOG_INFO, "SSL: already loaded certfile: %s for %s", certfile.c_str(), cn[i].c_str());
+		}
+	}
 }
 
 int
@@ -557,16 +690,7 @@ CSSL::Context::SSLserverNameCallback(SSL *ssl, int *ad)
 			certname = certselection["default"];
 		}
 		String certfile = certs[certname];
-		if (!sslContexts.exists(certfile)) {
-			// setup a new sslContext
-			SSL_CTX* newsslContext = initCTX(certfile, certfile, certfile);
-			if (newsslContext == NULL) {
-				syslog(LOG_INFO, "SSL: failed to load certfile: %s", certfile.c_str());
-				// just use the default cert
-				return SSL_TLSEXT_ERR_OK;
-			}
-			sslContexts[certfile] = newsslContext;
-		}
+		cassert(sslContexts.exists(certfile));
 		SSL_CTX* ctx = sslContexts[certfile];
 		cassert(ctx != NULL);
 		if (ctx == NULL)
@@ -585,12 +709,12 @@ CSSL::Context::SSLserverNameCallback(SSL *ssl, int *ad)
 
 int
 CSSL::Context::ssl_verify_cb(int ok, X509_STORE_CTX *ctx) {
-	a_ptr<char> buffer;
+	aa_ptr<char> buffer;
 	buffer = new char[256];
 
 	X509 *err_cert;
 	int err, depth;
-	SSL *ssl;
+	//SSL *ssl;
 
 	err_cert = X509_STORE_CTX_get_current_cert(ctx);
 	err = X509_STORE_CTX_get_error(ctx);
@@ -600,7 +724,7 @@ CSSL::Context::ssl_verify_cb(int ok, X509_STORE_CTX *ctx) {
 	* Retrieve the pointer to the SSL of the connection currently treated
 	* and the application specific data stored into the SSL object.
 	*/
-	ssl = (SSL*) X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
+	//ssl = (SSL*) X509_STORE_CTX_get_ex_data(ctx, SSL_get_ex_data_X509_STORE_CTX_idx());
 
 	X509_NAME_oneline(X509_get_subject_name(err_cert), buffer.get(), 256);
 
@@ -637,6 +761,7 @@ CSSL::Context::ssl_verify_cb(int ok, X509_STORE_CTX *ctx) {
 	return ok;
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 RSA *
 CSSL::Context::ssl_temp_rsa_cb(SSL *ssl, int exp, int keylength) {
 	// XXX?
@@ -654,6 +779,30 @@ CSSL::Context::ssl_temp_rsa_cb(SSL *ssl, int exp, int keylength) {
 	}
 	return rsa;
 }
+#endif
+
+#ifdef WITH_SSL_KEYLOG
+File CSSL::Context::keylog;
+Mutex CSSL::Context::keylog_mtx;
+
+void
+CSSL::Context::SSL_CTX_keylog_cb(const SSL *ssl, const char *line)
+{
+	(void)ssl;
+
+	Mutex::Guard mtx(keylog_mtx);
+
+	if (!keylog.opened()) {
+		String fname = "/www/tmp/tls_keylog.log.";
+		fname += getpid();
+
+		keylog.open(fname.c_str(), O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+	}
+
+	keylog.write(line);
+	keylog.write("\n");
+}
+#endif
 
 void
 CSSL::PKCS7::cleanup() {

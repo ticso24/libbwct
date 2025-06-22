@@ -257,6 +257,7 @@ Zfile::mywaitwrite()
 {
 	File::mywaitwrite();
 }
+
 #endif
 
 #ifdef HAVE_LIBBZ2
@@ -454,3 +455,4 @@ BZ2file::mywaitwrite()
 	File::mywaitwrite();
 }
 #endif
+

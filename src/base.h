@@ -1,11 +1,12 @@
 /*
- * Copyright (c) 2001,02 Bernd Walter Computer Technology
+ * Copyright (c) 2001,02,08 Bernd Walter Computer Technology
+ * Copyright (c) 2008 FIZON GmbH
  * All rights reserved.
  *
- * $URL$
- * $Date$
- * $Author$
- * $Rev$
+ * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/fizonbase.h $
+ * $Date: 2025-05-14 21:05:33 +0200 (Wed, 14 May 2025) $
+ * $Author: ticso $
+ * $Rev: 49218 $
  */
 
 #ifndef _BASE
@@ -13,10 +14,12 @@
 
 #include "config.h"
 
+#define WITH_VARIANT
+
 #include <sys/param.h>
 
 #include <sys/types.h>
-#include <sys/time.h>
+#include <time.h>
 
 #include <sys/ioctl.h>
 #include <sys/resource.h>
@@ -25,17 +28,18 @@
 #include <sys/uio.h>
 #include <sys/un.h>
 #include <sys/wait.h>
-
-# include <sys/mman.h>
+#include <sys/mman.h>
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <netinet/sctp.h>
 
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 #include <openssl/md5.h>
 #include <openssl/rand.h>
+#include <openssl/sha.h>
 
 #include <ctype.h>
 #include <dirent.h>
@@ -51,15 +55,18 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <unistd.h>
+#include <uuid.h>
+#include <math.h>
+#include <regex.h>
 
-# include <string.h>
-# include <strings.h>
-
+#include <string.h>
+#include <strings.h>
 #include "bsd.h"
 
 #include <typeinfo>
 #include <exception>
 #include <new>
+#include <iostream>
 
 #ifndef MAXSOCKADDR
 # ifdef SOCK_MAXADDRLEN

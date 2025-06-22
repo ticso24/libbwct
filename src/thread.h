@@ -4,9 +4,9 @@
  * All rights reserved.
  *
  * $URL: https://seewolf.fizon.de/svn/projects/matthies/Henry/Server/trunk/contrib/libfizonbase/thread.h $
- * $Date: 2017-09-24 03:12:48 +0200 (Sun, 24 Sep 2017) $
+ * $Date: 2025-06-07 19:50:33 +0200 (Sat, 07 Jun 2025) $
  * $Author: ticso $
- * $Rev: 33771 $
+ * $Rev: 49318 $
  */
 
 #ifndef _THREAD
@@ -26,7 +26,7 @@ protected:
 	void terminate();
 private:
 	pthread_t id;
-	Thread(Thread &src);
+	Thread(Thread&& src) = delete;
 	void detach();
 	virtual void threadend() = 0;
 	static void *starthelp(void *data);
@@ -34,7 +34,9 @@ public:
 	virtual void *threadstart() = 0;
 	friend class Listen;
 	Thread();
-	Thread(const Thread& cpy);
+	Thread(const Thread& cpy) = delete;
+	Thread& operator=(const Thread& cpy) = delete;
+	Thread& operator=(const Thread&& cpy) = delete;
 	virtual void start();
 	void join();
 	void atforkwipe();
@@ -46,7 +48,7 @@ void setthreadname(const String& name);
 class Mutex : public Base {
 private:
 	pthread_mutex_t mutex;
-	Mutex(Mutex &src);
+	Mutex(const Mutex &src);
 	bool locked;
 	bool dead;
 public:
@@ -75,7 +77,7 @@ public:
 
 class CV : public Base {
 private:
-	CV(CV &src);
+	CV(const CV &src);
 	pthread_cond_t cv;
 public:
 	CV();
