@@ -11,5 +11,8 @@
 
 #include "bwct.h"
 
-template class Array<String>;
+namespace bwct
+{
+	template class Array<String>;
+}
 

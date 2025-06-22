@@ -11,478 +11,481 @@
 
 #include "bwct.h"
 
-ssize_t
-File::read(void *vptr, size_t n) {
-	cassert(opened());
-	flush();
-	ssize_t nread = readn(vptr, n);
-	//syslog(LOG_INFO, "%s read = %lld", tinfo().c_str(), LL(nread));
-	return nread;
-}
-
-ssize_t
-File::write(const char *data) {
-	String str(data);
-	return write(str);
-}
-
-ssize_t
-File::write(const String& data) {
-	ssize_t ret;
-
-	ret = write(data.c_str(), data.length());
-	return ret;
-}
-
-String
-File::readline(size_t maxlength, bool noeoferr) {
-	String ret;
-	char buf[2];
-	ssize_t res;
-	size_t pos;
-
-	buf[1] = '\0';
-	for (pos = 0; pos < maxlength; pos++) {
-		res = read(buf, 1);
-		if (noeoferr && res == 0 && pos > 0)
-			return ret;
-		if (res != 1)
-			throw Error(String("read error"));
-		if (buf[0] == '\0') {
-			throw Error(String("input data contains zero byte"));
-		}
-		if (buf[0] == '\n') {
-			return ret;
-		}
-		if (buf[0] != '\r') {
-			ret += buf;
-		}
+namespace bwct
+{
+	ssize_t
+	File::read(void *vptr, size_t n) {
+		cassert(opened());
+		flush();
+		ssize_t nread = readn(vptr, n);
+		//syslog(LOG_INFO, "%s read = %lld", tinfo().c_str(), LL(nread));
+		return nread;
 	}
-	throw Error(String("line too long"));
-	/* not reached */
-	return ret;
-}
 
-ssize_t
-File::write(const void *vptr, size_t n) {
-	cassert(opened());
-	ssize_t nwriten = writen(vptr, n);
-	//syslog(LOG_INFO, "%s write = %lld", tinfo().c_str(), LL(nwriten));
-	return nwriten;
-}
+	ssize_t
+	File::write(const char *data) {
+		String str(data);
+		return write(str);
+	}
 
-ssize_t
-File::readn(void *vptr, size_t n) {
-	char *ptr = (char*)vptr;
-	size_t nleft = n;
-	while (nleft > 0) {
-		if (rbufsize > 0) {
-			// we have something in the readbuffer
-			size_t copybytes = (rbufsize < nleft) ? rbufsize : nleft;
-			bcopy(rbufpos, ptr, copybytes);
-			ptr += copybytes;
-			nleft -= copybytes;
-			rbufsize -= copybytes;
-			rbufpos += copybytes;
+	ssize_t
+	File::write(const String& data) {
+		ssize_t ret;
+
+		ret = write(data.c_str(), data.length());
+		return ret;
+	}
+
+	String
+	File::readline(size_t maxlength, bool noeoferr) {
+		String ret;
+		char buf[2];
+		ssize_t res;
+		size_t pos;
+
+		buf[1] = '\0';
+		for (pos = 0; pos < maxlength; pos++) {
+			res = read(buf, 1);
+			if (noeoferr && res == 0 && pos > 0)
+				return ret;
+			if (res != 1)
+				throw Error(String("read error"));
+			if (buf[0] == '\0') {
+				throw Error(String("input data contains zero byte"));
+			}
+			if (buf[0] == '\n') {
+				return ret;
+			}
+			if (buf[0] != '\r') {
+				ret += buf;
+			}
 		}
-		if (nleft > 0) {
-			// request is still not satisfied
-			ssize_t nread;
-			if (nleft < sizeof(readbuf)) {
-				// remaining request is smaller than buffersize, so try to fill the buffer in one go
-				if ((nread = microread(readbuf, sizeof(readbuf))) < 0) {
-					if (errno != EAGAIN && errno != EINTR) {
-						return(nread);
+		throw Error(String("line too long"));
+		/* not reached */
+		return ret;
+	}
+
+	ssize_t
+	File::write(const void *vptr, size_t n) {
+		cassert(opened());
+		ssize_t nwriten = writen(vptr, n);
+		//syslog(LOG_INFO, "%s write = %lld", tinfo().c_str(), LL(nwriten));
+		return nwriten;
+	}
+
+	ssize_t
+	File::readn(void *vptr, size_t n) {
+		char *ptr = (char*)vptr;
+		size_t nleft = n;
+		while (nleft > 0) {
+			if (rbufsize > 0) {
+				// we have something in the readbuffer
+				size_t copybytes = (rbufsize < nleft) ? rbufsize : nleft;
+				bcopy(rbufpos, ptr, copybytes);
+				ptr += copybytes;
+				nleft -= copybytes;
+				rbufsize -= copybytes;
+				rbufpos += copybytes;
+			}
+			if (nleft > 0) {
+				// request is still not satisfied
+				ssize_t nread;
+				if (nleft < sizeof(readbuf)) {
+					// remaining request is smaller than buffersize, so try to fill the buffer in one go
+					if ((nread = microread(readbuf, sizeof(readbuf))) < 0) {
+						if (errno != EAGAIN && errno != EINTR) {
+							return(nread);
+						}
+						waitread();
+					} else {
+						if (nread == 0) {
+							goto exit;
+						}
+						rbufsize = nread;
+						rbufpos = readbuf;
 					}
-					waitread();
 				} else {
-					if (nread == 0) {
-						goto exit;
+					// remaining request is bigger than buffer, so directly read into caller memory
+					if ((nread = microread(ptr, nleft)) < 0) {
+						if (errno != EAGAIN && errno != EINTR) {
+							return(nread);
+						}
+						waitread();
+					} else {
+						if (nread == 0) {
+							goto exit;
+						}
+						nleft -= nread;
+						ptr += nread;
 					}
-					rbufsize = nread;
-					rbufpos = readbuf;
-				}
-			} else {
-				// remaining request is bigger than buffer, so directly read into caller memory
-				if ((nread = microread(ptr, nleft)) < 0) {
-					if (errno != EAGAIN && errno != EINTR) {
-						return(nread);
-					}
-					waitread();
-				} else {
-					if (nread == 0) {
-						goto exit;
-					}
-					nleft -= nread;
-					ptr += nread;
 				}
 			}
 		}
+	exit:
+		return (n - nleft);
 	}
-exit:
-	return (n - nleft);
-}
 
-ssize_t
-File::writen(const void *vptr, size_t n) {
-	char *ptr = (char*)vptr;
-	size_t nleft = n;
-	while (nleft > 0) {
-		ssize_t nwritten;
-		if ((nwritten = microwrite(ptr, nleft)) < 0) {
-			if (errno != EAGAIN && errno != EINTR)
-				return(nwritten);
-			waitwrite();
-		} else {
-			nleft -= nwritten;
-			ptr += nwritten;
+	ssize_t
+	File::writen(const void *vptr, size_t n) {
+		char *ptr = (char*)vptr;
+		size_t nleft = n;
+		while (nleft > 0) {
+			ssize_t nwritten;
+			if ((nwritten = microwrite(ptr, nleft)) < 0) {
+				if (errno != EAGAIN && errno != EINTR)
+					return(nwritten);
+				waitwrite();
+			} else {
+				nleft -= nwritten;
+				ptr += nwritten;
+			}
+		}
+		return (n);
+	}
+
+	void
+	File::ncox() {
+		// XXX throw
+		cassert(fd >= 0);
+		int val = fcntl(fd, F_GETFD, 0);
+		cassert(val >= 0);
+		int res = fcntl(fd, F_SETFD, val & ~FD_CLOEXEC);
+		cassert(res >= 0);
+	}
+
+	void
+	File::cox() {
+		// XXX throw
+		cassert(fd >= 0);
+		int val = fcntl(fd, F_GETFD, 0);
+		cassert(val >= 0);
+		int res = fcntl(fd, F_SETFD, val | FD_CLOEXEC);
+		cassert(res >= 0);
+	}
+
+	String
+	File::tinfo() const {
+		String ret;
+		ret << "(" << typeid(*this).name() << "@" << this <<
+		    ", fd=" << fd << ", file=" << filename << ")";
+		return ret;
+	}
+
+	ssize_t
+	File::microread(void *vptr, size_t n) {
+		return ::read(fd, vptr, n);
+	}
+
+	ssize_t
+	File::microwrite(const void *vptr, size_t n) {
+		return ::write(fd, vptr, n);
+	}
+
+	int
+	File::opened() const {
+		check();
+		return (fd >= 0);
+	}
+
+	File::File() {
+		rbufpos = NULL;
+		rbufsize = 0;
+		fd = -1;
+	}
+
+	File::File(const File& file) : Base() {
+		rbufpos = NULL;
+		rbufsize = 0;
+		fd = dup(file.fd);
+	}
+
+	File::File(const String& path, int flags) {
+		rbufpos = NULL;
+		rbufsize = 0;
+		open(path, flags);
+	}
+
+	File::File(int nfd) {
+		rbufpos = NULL;
+		rbufsize = 0;
+		fd = dup(nfd);
+	}
+
+	File::~File() {
+		if (opened()) {
+			close();
 		}
 	}
-	return (n);
-}
 
-void
-File::ncox() {
-	// XXX throw
-	cassert(fd >= 0);
-	int val = fcntl(fd, F_GETFD, 0);
-	cassert(val >= 0);
-	int res = fcntl(fd, F_SETFD, val & ~FD_CLOEXEC);
-	cassert(res >= 0);
-}
-
-void
-File::cox() {
-	// XXX throw
-	cassert(fd >= 0);
-	int val = fcntl(fd, F_GETFD, 0);
-	cassert(val >= 0);
-	int res = fcntl(fd, F_SETFD, val | FD_CLOEXEC);
-	cassert(res >= 0);
-}
-
-String
-File::tinfo() const {
-	String ret;
-	ret << "(" << typeid(*this).name() << "@" << this <<
-	    ", fd=" << fd << ", file=" << filename << ")";
-	return ret;
-}
-
-ssize_t
-File::microread(void *vptr, size_t n) {
-	return ::read(fd, vptr, n);
-}
-
-ssize_t
-File::microwrite(const void *vptr, size_t n) {
-	return ::write(fd, vptr, n);
-}
-
-int
-File::opened() const {
-	check();
-	return (fd >= 0);
-}
-
-File::File() {
-	rbufpos = NULL;
-	rbufsize = 0;
-	fd = -1;
-}
-
-File::File(const File& file) : Base() {
-	rbufpos = NULL;
-	rbufsize = 0;
-	fd = dup(file.fd);
-}
-
-File::File(const String& path, int flags) {
-	rbufpos = NULL;
-	rbufsize = 0;
-	open(path, flags);
-}
-
-File::File(int nfd) {
-	rbufpos = NULL;
-	rbufsize = 0;
-	fd = dup(nfd);
-}
-
-File::~File() {
-	if (opened()) {
-		close();
+	void
+	File::close() {
+		cassert(opened());
+		::close (fd);
+		fd = -1;
 	}
-}
 
-void
-File::close() {
-	cassert(opened());
-	::close (fd);
-	fd = -1;
-}
-
-int
-File::flush () {
-	return 0;
-}
-
-void
-File::open(const String& path, int flags, int mode) {
-	if (flags & O_CREAT) {
-		fd = ::open(path.c_str(), flags, mode);
-	} else {
-		fd = ::open(path.c_str(), flags);
+	int
+	File::flush () {
+		return 0;
 	}
-	if (fd >= 0)
-		filename = path;
-	else {
-		throw Error(path + ": " + get_strerror(errno));
+
+	void
+	File::open(const String& path, int flags, int mode) {
+		if (flags & O_CREAT) {
+			fd = ::open(path.c_str(), flags, mode);
+		} else {
+			fd = ::open(path.c_str(), flags);
+		}
+		if (fd >= 0)
+			filename = path;
+		else {
+			throw Error(path + ": " + get_strerror(errno));
+		}
 	}
-}
 
-int64_t
-File::lseek(int64_t offset, int whence) {
-	return ::lseek(fd, offset, whence);
-}
+	int64_t
+	File::lseek(int64_t offset, int whence) {
+		return ::lseek(fd, offset, whence);
+	}
 
-String
-File::getpeername() {
-	return filename;
-}
+	String
+	File::getpeername() {
+		return filename;
+	}
 
-String
-File::getpeeraddr() {
-	String tmp;
-	return tmp;
-}
+	String
+	File::getpeeraddr() {
+		String tmp;
+		return tmp;
+	}
 
-int
-File::ioctl(unsigned long request, void *argp) {
-	return ::ioctl(fd, request, (char*)argp);
-}
+	int
+	File::ioctl(unsigned long request, void *argp) {
+		return ::ioctl(fd, request, (char*)argp);
+	}
 
-void
-File::waitread() {
-	if (rbufsize > 0) {
+	void
+	File::waitread() {
+		if (rbufsize > 0) {
+			return;
+		}
+		mywaitread();
+	}
+
+	void
+	File::waitwrite() {
+		mywaitwrite();
+	}
+
+	void
+	File::mywaitread() {
 		return;
 	}
-	mywaitread();
-}
 
-void
-File::waitwrite() {
-	mywaitwrite();
-}
-
-void
-File::mywaitread() {
-	return;
-}
-
-void
-File::mywaitwrite() {
-	return;
-}
-
-void *
-File::mmap(size_t len, off_t offset, int prot) {
-	// TODO: autoexpand
-	void *ret;
-	ret = ::mmap(NULL, len, prot, MAP_SHARED, fd, offset);
-	if (ret == MAP_FAILED) {
-		throw Error(S + "mmap: " + get_strerror(errno));
+	void
+	File::mywaitwrite() {
+		return;
 	}
-	return ret;
-}
 
-int
-File::munmap(void *addr, size_t len) {
-	int res;
-	res = ::munmap(addr, len);
-	if (res < 0) {
-		throw Error(S + "munmap: " + get_strerror(errno));
+	void *
+	File::mmap(size_t len, off_t offset, int prot) {
+		// TODO: autoexpand
+		void *ret;
+		ret = ::mmap(NULL, len, prot, MAP_SHARED, fd, offset);
+		if (ret == MAP_FAILED) {
+			throw Error(S + "mmap: " + get_strerror(errno));
+		}
+		return ret;
 	}
-	return res;
-}
 
-String
-File::realpath(String path) {
-	String ret;
-	char resolve_path[PATH_MAX];
-	char *res;
+	int
+	File::munmap(void *addr, size_t len) {
+		int res;
+		res = ::munmap(addr, len);
+		if (res < 0) {
+			throw Error(S + "munmap: " + get_strerror(errno));
+		}
+		return res;
+	}
 
-	res = ::realpath(path.c_str(), resolve_path);
-	if (res == NULL) {
-		throw Error(path + ": " + get_strerror(errno));
+	String
+	File::realpath(String path) {
+		String ret;
+		char resolve_path[PATH_MAX];
+		char *res;
+
+		res = ::realpath(path.c_str(), resolve_path);
+		if (res == NULL) {
+			throw Error(path + ": " + get_strerror(errno));
+
+		}
+		ret = res;
+		return ret;
 
 	}
-	ret = res;
-	return ret;
 
-}
+	String
+	File::abspath(String path) {
+		return realpath(path); // TODO realpath resolves softlinks as well
+	}
 
-String
-File::abspath(String path) {
-	return realpath(path); // TODO realpath resolves softlinks as well
-}
+	ssize_t
+	File::sendfile(File &infile) {
+		throw Error("sendfile not implemented in class File");
+		return 0;
+	}
 
-ssize_t
-File::sendfile(File &infile) {
-	throw Error("sendfile not implemented in class File");
-	return 0;
-}
+	FTask::FTask() {
+	}
 
-FTask::FTask() {
-}
+	FTask::~FTask() {
+	}
 
-FTask::~FTask() {
-}
+	String
+	FTask::tinfo() const {
+		String ret;
+		ret << "(" << typeid(*this).name() << "@" << this << ", file=" <<
+		    (file.isinit() ? file->tinfo() : "none") + ")";
+		return ret;
+	}
 
-String
-FTask::tinfo() const {
-	String ret;
-	ret << "(" << typeid(*this).name() << "@" << this << ", file=" <<
-	    (file.isinit() ? file->tinfo() : "none") + ")";
-	return ret;
-}
+	void
+	FTask::setfile(File *nfile) {
+		cassert(nfile != NULL);
+		file = nfile;
+	}
 
-void
-FTask::setfile(File *nfile) {
-	cassert(nfile != NULL);
-	file = nfile;
-}
+	Stat::Stat() {
+		bzero(&s, sizeof(s));
+	}
 
-Stat::Stat() {
-	bzero(&s, sizeof(s));
-}
+	Stat::Stat(const String path) {
+		bzero(&s, sizeof(s));
+		lstat(path);
+	}
 
-Stat::Stat(const String path) {
-	bzero(&s, sizeof(s));
-	lstat(path);
-}
+	Stat::Stat(File &rhs) {
+		fstat(rhs.fd);
+	}
 
-Stat::Stat(File &rhs) {
-	fstat(rhs.fd);
-}
+	Stat::~Stat() {
+	}
 
-Stat::~Stat() {
-}
-
-void
-Stat::init(const struct stat *sp) {
-	s.dev = sp->st_dev;
-	s.ino = sp->st_ino;
-	s.mode = sp->st_mode;
-	s.nlink = sp->st_nlink;
-	s.uid = sp->st_uid;
-	s.gid = sp->st_gid;
-	s.rdev = sp->st_rdev;
+	void
+	Stat::init(const struct stat *sp) {
+		s.dev = sp->st_dev;
+		s.ino = sp->st_ino;
+		s.mode = sp->st_mode;
+		s.nlink = sp->st_nlink;
+		s.uid = sp->st_uid;
+		s.gid = sp->st_gid;
+		s.rdev = sp->st_rdev;
 #ifdef BSD
-	s.atime = sp->st_atimespec.tv_sec;
-	s.atimeusec = sp->st_atimespec.tv_nsec * 1000;
-	s.ctime = sp->st_ctimespec.tv_sec;
-	s.ctimeusec = sp->st_ctimespec.tv_nsec * 1000;
-	s.mtime = sp->st_mtimespec.tv_sec;
-	s.mtimeusec = sp->st_mtimespec.tv_nsec * 1000;
-	s.flags = sp->st_flags;
-	s.gen = sp->st_gen;
+		s.atime = sp->st_atimespec.tv_sec;
+		s.atimeusec = sp->st_atimespec.tv_nsec * 1000;
+		s.ctime = sp->st_ctimespec.tv_sec;
+		s.ctimeusec = sp->st_ctimespec.tv_nsec * 1000;
+		s.mtime = sp->st_mtimespec.tv_sec;
+		s.mtimeusec = sp->st_mtimespec.tv_nsec * 1000;
+		s.flags = sp->st_flags;
+		s.gen = sp->st_gen;
 #else
-	s.atime = sp->st_atime;
-	s.ctime = sp->st_ctime;
-	s.mtime = sp->st_mtime;
-	s.atimeusec = 0;
-	s.ctimeusec = 0;
-	s.mtimeusec = 0;
-	s.flags = 0;
-	s.gen = 0;
+		s.atime = sp->st_atime;
+		s.ctime = sp->st_ctime;
+		s.mtime = sp->st_mtime;
+		s.atimeusec = 0;
+		s.ctimeusec = 0;
+		s.mtimeusec = 0;
+		s.flags = 0;
+		s.gen = 0;
 #endif
-	s.size = sp->st_size;
-	s.blocks = sp->st_blocks;
-	s.blksize = sp->st_blksize;
-}
-
-int
-Stat::stat(const String& path) {
-	int ret;
-	struct stat st;
-	ret = ::stat(path.c_str(), &st);
-	init(&st);
-	return ret;
-}
-
-int
-Stat::lstat(const String& path) {
-	int ret;
-	struct stat st;
-	ret = ::lstat(path.c_str(), &st);
-	init(&st);
-	return ret;
-}
-
-int
-Stat::fstat(int fd) {
-	int ret;
-	struct stat st;
-	ret = ::fstat(fd, &st);
-	init(&st);
-	return ret;
-}
-
-bool
-Stat::is_link() {
-	return S_ISLNK(s.mode);
-}
-
-bool
-Stat::is_reg() {
-	return S_ISREG(s.mode);
-}
-
-bool
-Stat::is_dir() {
-	return S_ISDIR(s.mode);
-}
-
-const Stat&
-Stat::operator=(const struct stat& st) {
-	init(&st);
-	return (*this);
-}
-
-Dir::Dir() {
-	dir = NULL;
-	entry = NULL;
-}
-
-Dir::~Dir() {
-	if (dir != NULL)
-		closedir(dir);
-}
-
-void
-Dir::open(const String& ndir) {
-	if (dir != NULL)
-		closedir(dir);
-	dirname = ndir;
-	if (dirname[dirname.length()] != '/')
-		dirname += "/";
-	dir = opendir(dirname.c_str());
-	entry = NULL;
-}
-
-int
-Dir::read() {
-	cassert(dir != NULL);
-	entry = readdir(dir);
-	if (entry != NULL) {
-		name = entry->d_name;
-		type = entry->d_type;
+		s.size = sp->st_size;
+		s.blocks = sp->st_blocks;
+		s.blksize = sp->st_blksize;
 	}
-	return (entry != NULL);
-}
 
-int
-Dir::opened() {
-	return (dir != NULL);
+	int
+	Stat::stat(const String& path) {
+		int ret;
+		struct stat st;
+		ret = ::stat(path.c_str(), &st);
+		init(&st);
+		return ret;
+	}
+
+	int
+	Stat::lstat(const String& path) {
+		int ret;
+		struct stat st;
+		ret = ::lstat(path.c_str(), &st);
+		init(&st);
+		return ret;
+	}
+
+	int
+	Stat::fstat(int fd) {
+		int ret;
+		struct stat st;
+		ret = ::fstat(fd, &st);
+		init(&st);
+		return ret;
+	}
+
+	bool
+	Stat::is_link() {
+		return S_ISLNK(s.mode);
+	}
+
+	bool
+	Stat::is_reg() {
+		return S_ISREG(s.mode);
+	}
+
+	bool
+	Stat::is_dir() {
+		return S_ISDIR(s.mode);
+	}
+
+	const Stat&
+	Stat::operator=(const struct stat& st) {
+		init(&st);
+		return (*this);
+	}
+
+	Dir::Dir() {
+		dir = NULL;
+		entry = NULL;
+	}
+
+	Dir::~Dir() {
+		if (dir != NULL)
+			closedir(dir);
+	}
+
+	void
+	Dir::open(const String& ndir) {
+		if (dir != NULL)
+			closedir(dir);
+		dirname = ndir;
+		if (dirname[dirname.length()] != '/')
+			dirname += "/";
+		dir = opendir(dirname.c_str());
+		entry = NULL;
+	}
+
+	int
+	Dir::read() {
+		cassert(dir != NULL);
+		entry = readdir(dir);
+		if (entry != NULL) {
+			name = entry->d_name;
+			type = entry->d_type;
+		}
+		return (entry != NULL);
+	}
+
+	int
+	Dir::opened() {
+		return (dir != NULL);
+	}
 }
