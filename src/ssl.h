@@ -12,6 +12,8 @@
 #ifndef _SSL
 #define _SSL
 
+#ifdef HAVE_OPENSSL
+
 #include "network.h"
 #include "aarray.h"
 
@@ -87,5 +89,7 @@ public:
 		    char *in, ssize_t insize, char* out, ssize_t outsize);
 	};
 };
+
+#endif /* HAVE_OPENSSL */
 
 #endif /* !_SSL */

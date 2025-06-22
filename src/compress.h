@@ -18,16 +18,6 @@
 #endif
 #ifdef HAVE_LIBBZ2
 #include <bzlib.h>
-#ifndef HAVE_BZ2_BZCOMPRESSINIT
-#ifdef HAVE_BZCOMPRESSINIT
-#define BZ2_bzCompressEnd bzCompressEnd
-#define BZ2_bzDecompressEnd bzDecompressEnd
-#define BZ2_bzCompress bzCompress
-#define BZ2_bzDecompress bzDecompress
-#define BZ2_bzCompressInit bzCompressInit
-#define BZ2_bzDecompressInit bzDecompressInit
-#endif
-#endif
 #endif
 
 class Cmpfile : public File {

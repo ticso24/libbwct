@@ -9,6 +9,8 @@
  * $Rev: 42505 $
  */
 
+#ifdef HAVE_OPENSSL
+
 #include "bwct.h"
 #include <openssl/dh.h>
 #include <openssl/ssl.h>
@@ -755,4 +757,6 @@ CSSL::PKCS7::sign(char *in, ssize_t insize, char* out, ssize_t outsize) {
 		throw;
 	}
 }
+
+#endif /* HAVE_OPENSSL */
 

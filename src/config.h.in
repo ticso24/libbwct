@@ -2,6 +2,6 @@
 #define bwct_VERSION_MINOR @bwct_VERSION_MINOR@
 
 #define BWCT_DEBUG
-#cmakedefine HAVE_FEATURE_A @Feature_A_FOUND@
-#cmakedefine HAVE_FEATURE_B @Feature_B_FOUND@
-#cmakedefine HAVE_FEATURE_BITS @B_BITSIZE@
+#cmakedefine HAVE_ZLIB @ZLIB_FOUND@
+#cmakedefine HAVE_OPENSSL @OPENSSL_FOUND@
+#cmakedefine HAVE_LIBBZ2 @BZIP2_FOUND@
