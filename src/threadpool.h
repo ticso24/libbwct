@@ -17,6 +17,7 @@
 #ifdef WITH_POOL
 #include <thread>
 #include <future>
+#include <functional>
 
 namespace bwct
 	{
