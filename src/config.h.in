@@ -2,6 +2,6 @@
 #define bwct_VERSION_MINOR @bwct_VERSION_MINOR@
 
 #define BWCT_DEBUG
-#cmakedefine HAVE_ZLIB @ZLIB_FOUND@
-#cmakedefine HAVE_OPENSSL @OPENSSL_FOUND@
-#cmakedefine HAVE_LIBBZ2 @BZIP2_FOUND@
+#cmakedefine HAVE_LIBZ @HAVE_LIBZ@
+#cmakedefine HAVE_LIBBZ2 @HAVE_LIBBZ2@
+#cmakedefine HAVE_OPENSSL @HAVE_OPENSSL@

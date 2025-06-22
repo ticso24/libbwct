@@ -37,7 +37,7 @@ public:
 	virtual int ioctl(unsigned long request, void *argp = NULL);
 };
 
-#ifdef HAVE_LIBBZ2
+#ifdef HAVE_LIBZ
 class Zfile : public Cmpfile {
 protected:
 	a_ptr<char> inbuf;
