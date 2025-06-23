@@ -10,7 +10,6 @@
  */
 
 #include <sys/types.h>
-#include <machine/atomic.h>
 #include <unistd.h>
 #include <sys/time.h>
 #include <sys/resource.h>
