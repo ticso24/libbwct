@@ -234,26 +234,6 @@ namespace bwct
 		return (n);
 	}
 
-	ssize_t
-	CSSL::Network::sendfile(File &infile) {
-		if (sc == NULL) {
-			return bwct::Network::Net::sendfile(infile);
-		}
-		ssize_t bytessend;
-		ssize_t bytesread;
-
-		ssize_t bytesprocessed = 0;
-		std::unique_ptr<char> buf(new char[BUFSIZE]);
-		while ((bytesread = infile.read(buf.get(), BUFSIZE)) > 0) {
-			bytessend = write(buf.get(), bytesread);
-			if (bytessend != bytesread) {
-				return -1;
-			}
-			bytesprocessed += bytessend;
-		}
-		return bytesprocessed;
-	}
-
 	// TODO: disable Nagle (TCP_NODELAY) on socket
 	void
 	CSSL::Network::saccept() {

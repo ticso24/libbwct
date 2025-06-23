@@ -329,12 +329,6 @@ namespace bwct
 		return realpath(path); // TODO realpath resolves softlinks as well
 	}
 
-	ssize_t
-	File::sendfile(File &infile) {
-		throw Error("sendfile not implemented in class File");
-		return 0;
-	}
-
 	FTask::FTask() {
 	}
 

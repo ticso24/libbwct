@@ -67,7 +67,6 @@ namespace bwct
 		virtual String tinfo() const;
 		virtual void *mmap(size_t len, off_t offset, int prot);
 		virtual int munmap(void *addr, size_t len);
-		virtual ssize_t sendfile(File &infile);
 		static String realpath(String path);
 		static String abspath(String path);
 		void waitread();

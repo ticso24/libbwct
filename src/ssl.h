@@ -80,7 +80,6 @@ namespace bwct
 			virtual void connect_UDS(const String& path);
 			virtual void connect_tcp(const String& name, const String& port,
 			    int family = AF_UNSPEC);
-			virtual ssize_t sendfile(File &infile);
 			virtual String tinfo() const;
 		};
 
