@@ -42,8 +42,8 @@ namespace bwct
 #ifdef HAVE_LIBZ
 	class Zfile : public Cmpfile {
 	protected:
-		aa_ptr<char> inbuf;
-		aa_ptr<char> outbuf;
+		std::unique_ptr<char> inbuf;
+		std::unique_ptr<char> outbuf;
 		char *outptr;
 		z_stream zs;
 		virtual ssize_t microread(void *vptr, size_t n);
@@ -61,8 +61,8 @@ namespace bwct
 #ifdef HAVE_LIBBZ2
 	class BZ2file : public Cmpfile {
 	protected:
-		aa_ptr<char> inbuf;
-		aa_ptr<char> outbuf;
+		std::unique_ptr<char> inbuf;
+		std::unique_ptr<char> outbuf;
 		char *outptr;
 		bz_stream zs;
 		virtual ssize_t microread(void *vptr, size_t n);

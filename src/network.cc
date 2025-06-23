@@ -304,12 +304,9 @@ namespace bwct
 		struct addrinfo *addr0;
 		struct addrinfo hints;
 		int res;
-		aa_ptr<char> port;
-		port = new char[NI_MAXHOST];
-		aa_ptr<char> ip;
-		ip = new char[NI_MAXHOST];
-		aa_ptr<char> name;
-		name = new char[NI_MAXHOST];
+		std::unique_ptr<char> port(new char[NI_MAXHOST]);
+		std::unique_ptr<char> ip(new char[NI_MAXHOST]);
+		std::unique_ptr<char> name(new char[NI_MAXHOST]);
 		int ret;
 		socklen_t addrlen;
 
@@ -322,8 +319,7 @@ namespace bwct
 		strcpy(ip.get(), "unresolved");
 		strcpy(name.get(), "unresolved");
 
-		aa_ptr<char> addrdt;
-		addrdt = new char[SOCK_MAXADDRLEN];
+		std::unique_ptr<char> addrdt(new char[SOCK_MAXADDRLEN]);
 		struct sockaddr *addr = (struct sockaddr*)addrdt.get();
 		addrlen = SOCK_MAXADDRLEN;
 		res = ::getsockname(fd, addr, &addrlen);

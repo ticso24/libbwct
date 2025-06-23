@@ -114,8 +114,8 @@ namespace bwct
 	void
 	Zfile::cmpinit(int comp, int iscomp)
 	{
-		inbuf = new char[65536];
-		outbuf = new char[65536];
+		inbuf.reset(new char[65536]);
+		outbuf.reset(new char[65536]);
 		outptr = outbuf.get();
 		zs.zalloc = NULL;
 		zs.zfree = NULL;
@@ -311,8 +311,8 @@ namespace bwct
 	void
 	BZ2file::cmpinit(int comp, int iscomp)
 	{
-		inbuf = new char[65536];
-		outbuf = new char[65536];
+		inbuf.reset(new char[65536]);
+		outbuf.reset(new char[65536]);
 		outptr = outbuf.get();
 		zs.bzalloc = NULL;
 		zs.bzfree = NULL;

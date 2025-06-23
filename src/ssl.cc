@@ -239,12 +239,11 @@ namespace bwct
 		if (sc == NULL) {
 			return bwct::Network::Net::sendfile(infile);
 		}
-		aa_ptr<char> buf;
 		ssize_t bytessend;
 		ssize_t bytesread;
 
 		ssize_t bytesprocessed = 0;
-		buf = new char[BUFSIZE];
+		std::unique_ptr<char> buf(new char[BUFSIZE]);
 		while ((bytesread = infile.read(buf.get(), BUFSIZE)) > 0) {
 			bytessend = write(buf.get(), bytesread);
 			if (bytessend != bytesread) {
@@ -302,8 +301,7 @@ namespace bwct
 #if 0
 		x509 = SSL_get_peer_certificate(ssl);
 		syslog(LOG_INFO, "SSL: Certname %s", x509->name);
-		aa_ptr<char> buf;
-		buf = new char[256];
+		std::unique_ptr<char> buf(new char[256]);
 		if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 		    NID_commonName, buf.get(), 256) <= 0)
 			throw Error(String("SSL: Error accepting on socket: ") +
@@ -347,8 +345,7 @@ namespace bwct
 		cipher = SSL_get_cipher(ssl);
 		tls_ver = SSL_get_version(ssl);
 		x509 = SSL_get_peer_certificate(ssl);
-		aa_ptr<char> buf;
-		buf = new char[256];
+		std::unique_ptr<char> buf(new char[256]);
 		if (X509_NAME_get_text_by_NID(X509_get_subject_name(x509),
 		    NID_commonName, buf.get(), 256) <= 0)
 			throw Error(String("SSL: Error connecting on socket: ") +
@@ -712,9 +709,7 @@ namespace bwct
 
 	int
 	CSSL::Context::ssl_verify_cb(int ok, X509_STORE_CTX *ctx) {
-		aa_ptr<char> buffer;
-		buffer = new char[256];
-
+		std::unique_ptr<char> buffer(new char[256]);
 		X509 *err_cert;
 		int err, depth;
 		//SSL *ssl;

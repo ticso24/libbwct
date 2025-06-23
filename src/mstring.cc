@@ -1391,8 +1391,7 @@ namespace bwct
 
 		res = regcomp(&rx, lh.c_str(), REG_EXTENDED);
 		if (res != 0) {
-			aa_ptr<char> error;
-			error = new char[err_bufsize];
+			std::unique_ptr<char> error(new char[err_bufsize]);
 			regerror(res, &rx, error.get(), err_bufsize);
 			//regfree(&rx);
 			throw Error(String(error.get()));
@@ -1406,8 +1405,7 @@ namespace bwct
 		}
 
 		if (res != 0) {
-			aa_ptr<char> error;
-			error = new char[err_bufsize];
+			std::unique_ptr<char> error(new char[err_bufsize]);
 			regerror(res, &rx, error.get(), err_bufsize);
 			regfree(&rx);
 			throw Error(String(error.get()));
@@ -1489,8 +1487,7 @@ namespace bwct
 		//log(S + "compare " + *this + " with " + re);
 		res = regcomp(&rx, re.c_str(), REG_EXTENDED);
 		if (res != 0) {
-			aa_ptr<char> error;
-			error = new char[err_bufsize];
+			std::unique_ptr<char> error(new char[err_bufsize]);
 			regerror(res, &rx, error.get(), err_bufsize);
 			//regfree(&rx);
 			throw Error(String(error.get()));
@@ -1499,8 +1496,7 @@ namespace bwct
 		pmatch.rm_eo = ln;
 		res = regexec(&rx, get_data(), 0, &pmatch, 0);
 		if (res != 0 && res != REG_NOMATCH) {
-			aa_ptr<char> error;
-			error = new char[err_bufsize];
+			std::unique_ptr<char> error(new char[err_bufsize]);
 			regerror(res, &rx, error.get(), err_bufsize);
 			regfree(&rx);
 			throw Error(String(error.get()));

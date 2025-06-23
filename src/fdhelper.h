@@ -76,7 +76,7 @@ namespace bwct
 
 	class FTask : public Thread {
 	protected:
-		a_ptr<File> file;
+		std::unique_ptr<File> file;
 	public:
 		FTask();
 		~FTask();

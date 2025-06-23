@@ -146,25 +146,18 @@ namespace bwct
 
 	class Base {
 	private:
-		volatile int refcount;
 	public:
 		void log(int priority, const String& str) const noexcept;
 		void log(int priority, const char *str) const noexcept;
 		void log(const String& str) const noexcept;
 		void log(const char *str) const noexcept;
 		virtual void check() const;
-		Base() noexcept { refcount = 0; };
-		Base(const Base& rh) noexcept { refcount = 0; };
-		Base(Base&& rh) noexcept { refcount = 0; };
+		Base() noexcept {};
+		Base(const Base& rh) noexcept {};
+		Base(Base&& rh) noexcept {};
 		Base& operator=(const Base& rh) noexcept { return *this; };
 		Base& operator=(Base&& rh) noexcept { return *this; };
 		virtual ~Base() noexcept;
-		void addref() noexcept;
-		void delref() noexcept;
-		int getref() const noexcept
-		{
-			return refcount;
-		}
 		virtual String tinfo() const;
 	};
 
@@ -277,225 +270,6 @@ namespace bwct
 		    + " in " + __func__;					\
 		throw Error(err);						\
 	}
-
-	template <class T>
-	class a_ptr : public Base {
-	protected:
-		T& operator[](int i) noexcept;
-	private:
-		T* ptr;
-	public:
-		a_ptr() noexcept {
-			ptr = NULL;
-		}
-		a_ptr(const a_ptr& rh) = delete;
-		a_ptr(a_ptr&& rh) noexcept {
-			ptr = rh.ptr;
-			rh.ptr = NULL;
-		}
-		a_ptr(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			ptr = nptr;
-		}
-		a_ptr& operator=(const a_ptr& rh) = delete;
-		a_ptr& operator=(a_ptr&& rh) noexcept {
-			ptr = rh.ptr;
-			rh.ptr = NULL;
-		}
-		bool isinit() const noexcept {
-			return (ptr != NULL);
-		}
-		const T* operator->() const noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		T* operator->() noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		~a_ptr() noexcept {
-			delete ptr;
-			ptr = NULL;
-		}
-		T* get() noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		const T* get() const noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		void del() noexcept {
-			delete ptr;
-			ptr = NULL;
-		}
-		T* operator=(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			delete ptr;
-			ptr = nptr;
-			return ptr;
-		}
-	};
-
-	template <class T>
-	class aa_ptr : public Base {
-	protected:
-		T& operator[](int i) noexcept;
-	private:
-		T* ptr;
-	public:
-		aa_ptr() noexcept {
-			ptr = NULL;
-		}
-		aa_ptr(const aa_ptr& src) = delete;
-		aa_ptr(aa_ptr&& src) noexcept {
-			ptr = src.ptr;
-			src.ptr = NULL;
-		}
-		aa_ptr(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			ptr = nptr;
-		}
-		aa_ptr& operator=(const aa_ptr& src) = delete;
-		aa_ptr& operator=(aa_ptr&& src) noexcept {
-			ptr = src.ptr;
-			src.ptr = NULL;
-		}
-		bool isinit() const noexcept {
-			return (ptr != NULL);
-		}
-		const T* operator->() const noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		T* operator->() noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		~aa_ptr() noexcept {
-			delete[] ptr;
-			ptr = NULL;
-		}
-		T* get() noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		const T* get() const noexcept {
-			abort_assert(isinit());
-			return ptr;
-		}
-		void del() noexcept {
-			delete[] ptr;
-			ptr = NULL;
-		}
-		T* operator=(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			delete[] ptr;
-			ptr = nptr;
-			return ptr;
-		}
-	};
-
-	template <class T>
-	class a_refptr : public Base {
-	private:
-		T* ptr;
-	public:
-		a_refptr(const a_refptr &src) noexcept : Base () {
-			ptr = src.ptr;
-			if (ptr != NULL) {
-				ptr->addref();
-			}
-		}
-		a_refptr(a_refptr &&src) noexcept : Base () {
-			ptr = src.ptr;
-			src.ptr = NULL;
-		}
-		a_refptr(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			ptr = nptr;
-			ptr->addref();
-		}
-		a_refptr() noexcept {
-			ptr = NULL;
-		}
-		~a_refptr() noexcept {
-			if (ptr != NULL) {
-				ptr->delref();
-				ptr = NULL;
-			}
-		}
-		const a_refptr& operator=(const a_refptr &src) noexcept {
-			if (ptr != NULL) {
-				ptr->delref();
-			}
-			ptr = src.ptr;
-			if (ptr != NULL) {
-				ptr->addref();
-			}
-			return *this;
-		}
-		const a_refptr& operator=(a_refptr &&src) noexcept {
-			std::swap(ptr, src.ptr);
-			return *this;
-		}
-		int isinit() const noexcept {
-			return (ptr != NULL);
-		}
-		const T* operator->() const {
-			if (ptr == NULL) {
-				T** tmp = const_cast<T**>(&ptr);
-				*tmp = new T;
-				ptr->addref();
-			}
-			return ptr;
-		}
-		T* operator->() {
-			if (ptr == NULL) {
-				ptr = new T;
-				ptr->addref();
-			}
-			return ptr;
-		}
-		T* get() noexcept {
-			if (ptr == NULL) {
-				ptr = new T;
-				ptr->addref();
-			}
-			return ptr;
-		}
-		T& geto() noexcept {
-			if (ptr == NULL) {
-				ptr = new T;
-				ptr->addref();
-			}
-			return *ptr;
-		}
-		const T* get() const {
-			if (ptr == NULL) {
-				T** tmp = const_cast<T**>(&ptr);
-				*tmp = new T;
-				ptr->addref();
-			}
-			return ptr;
-		}
-		T* operator=(T* nptr) noexcept {
-			abort_assert(nptr != NULL);
-			T* tmp = ptr;
-			ptr = nptr;
-			ptr->addref();
-			if (tmp != NULL) {
-				tmp->delref();
-			}
-			return ptr;
-		}
-		void del() noexcept {
-			if (ptr != NULL) {
-				ptr->delref();
-			}
-			ptr = NULL;
-		}
-	};
 
 	uint64_t gettimesec(void);
 	String sgethostname();

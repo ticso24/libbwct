@@ -345,14 +345,14 @@ namespace bwct
 	FTask::tinfo() const {
 		String ret;
 		ret << "(" << typeid(*this).name() << "@" << this << ", file=" <<
-		    (file.isinit() ? file->tinfo() : "none") + ")";
+		    (file ? file->tinfo() : "none") + ")";
 		return ret;
 	}
 
 	void
 	FTask::setfile(File *nfile) {
 		cassert(nfile != NULL);
-		file = nfile;
+		file.reset(nfile);
 	}
 
 	Stat::Stat() {

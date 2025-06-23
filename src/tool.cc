@@ -39,18 +39,12 @@ namespace bwct
 	void
 	Base::check() const
 	{
-		if (refcount < 0) {
-			syslog(LOG_DEBUG, "refcount == %d %s", refcount, tinfo().c_str());
-			abort();
-		}
 	}
 
 	Base::~Base() noexcept
 	{
 
 		check();
-		abort_assert(refcount == 0);
-		refcount = -10;
 	//	log("destroy");
 	}
 
@@ -82,29 +76,8 @@ namespace bwct
 	Base::tinfo() const
 	{
 		String ret;
-		ret << "(" << typeid(*this).name() << "@" << this << " refcount=" << refcount << ")";
+		ret << "(" << typeid(*this).name() << "@" << this << ")";
 		return ret;
-	}
-
-	void
-	Base::addref() noexcept
-	{
-		check();
-		atomic_add_int((volatile u_int*)&refcount, 1);
-		//syslog(LOG_DEBUG, "addref %s", tinfo().c_str());
-	}
-
-	void
-	Base::delref() noexcept
-	{
-		check();
-		int lastref;
-		lastref = (int)atomic_fetchadd_int((volatile u_int*)&refcount, (u_int)-1);
-		//syslog(LOG_DEBUG, "delref %s", tinfo().c_str());
-		if (lastref == 1) {
-			//syslog(LOG_DEBUG, "deleting %s by reference", tinfo().c_str());
-			delete this;
-		}
 	}
 
 	uint64_t
