@@ -53,7 +53,6 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <unistd.h>
-#include <uuid.h>
 #include <math.h>
 #include <regex.h>
 
