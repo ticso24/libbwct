@@ -55,6 +55,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <regex.h>
+#include <stdint.h>
 
 #include <string.h>
 #include <strings.h>
@@ -64,6 +65,7 @@
 #include <exception>
 #include <new>
 #include <iostream>
+#include <memory>
 
 #ifndef MAXSOCKADDR
 # ifdef SOCK_MAXADDRLEN
