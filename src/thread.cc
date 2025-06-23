@@ -91,9 +91,7 @@ namespace bwct
 	void
 	Thread::setname(const String& name)
 	{
-	#if __has_include(<pthread_np.h>)
-		pthread_set_name_np(id, name.c_str());
-	#endif
+		pthread_setname_np(id, name.c_str());
 	}
 
 	void
@@ -108,9 +106,7 @@ namespace bwct
 	void
 	setthreadname(const String& name)
 	{
-	#if __has_include(<pthread_np.h>)
-		pthread_set_name_np(pthread_self(), name.c_str());
-	#endif
+		pthread_setname_np(pthread_self(), name.c_str());
 	}
 
 	Mutex::Mutex()
