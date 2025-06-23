@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.31)
 
 project("bwct"
-	VERSION 0.18
+	VERSION 0.22
 )
 
 set(CMAKE_CXX_STANDARD 17)
