@@ -12,7 +12,9 @@
 #ifndef _TOOL
 #define _TOOL
 
+#if __has_include(<pthread_np.h>)
 #include <pthread_np.h>
+#endif
 
 namespace bwct
 {
