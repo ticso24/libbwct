@@ -278,6 +278,8 @@ namespace bwct
 	uint64_t genid();
 	String tohex(char *data, int size);
 
+#ifdef HAVE_OPENSSL
+#if 0
 	class MD5_Hash {
 	public:
 		unsigned char buf[MD5_DIGEST_LENGTH];
@@ -297,7 +299,8 @@ namespace bwct
 	SHA1_Hash getSHA1(const String& data);
 	String get_strhash(SHA1_Hash hash);
 	String get_base64hash(SHA1_Hash hash);
-	String get_strhmac256(const String& key, const String& data);
+#endif
+#endif
 
 	String base64_encode(void* data, size_t length); // MIME (RFC 2045), RFC 3548 and RFC 4648 compliant
 

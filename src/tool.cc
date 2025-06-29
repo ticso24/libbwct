@@ -107,6 +107,7 @@ namespace bwct
 	}
 
 #ifdef HAVE_OPENSSL
+#if 0
 	MD5_Hash
 	getMD5(void* data, size_t length)
 	{
@@ -128,7 +129,6 @@ namespace bwct
 		MD5_Final(hash.buf, &context);
 		return hash;
 	}
-#endif
 
 	String
 	get_strhash(MD5_Hash hash)
@@ -158,7 +158,6 @@ namespace bwct
 		return base64_encode(hash.buf, MD5_DIGEST_LENGTH);
 	}
 
-#ifdef HAVE_OPENSSL
 	SHA1_Hash
 	getSHA1(void* data, size_t length)
 	{
@@ -180,7 +179,6 @@ namespace bwct
 		SHA1_Final(hash.buf, &context);
 		return hash;
 	}
-#endif
 
 	String
 	get_base64hash(SHA1_Hash hash)
@@ -207,62 +205,6 @@ namespace bwct
 				ret.push_back('0' + nibble);
 			}
 		}
-		return ret;
-	}
-
-#ifdef HAVE_OPENSSL
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	String
-	get_strhmac256(const String& key, const String& data)
-	{
-		String ret;
-
-		unsigned char* res;
-		unsigned int len = EVP_MAX_MD_SIZE;
-		res = (unsigned char*)malloc(sizeof(char) * len);
-
-		HMAC_CTX ctx;
-		HMAC_CTX_init(&ctx);
-
-		HMAC_Init_ex(&ctx, key.c_str(), key.length(), EVP_sha256(), NULL);
-		HMAC_Update(&ctx, (unsigned char*)data.c_str(), data.length());
-		HMAC_Final(&ctx, res, &len);
-		HMAC_CTX_cleanup(&ctx);
-
-		for (unsigned int h = 0; h != len; h++) {
-			String hex;
-			hex.printf("%02x", (unsigned int)res[h]);
-			ret += hex;
-		}
-		free(res);
-
-		return ret;
-	}
-#else
-	String
-	get_strhmac256(const String& key, const String& data)
-	{
-		String ret;
-
-		unsigned char* res;
-		unsigned int len = EVP_MAX_MD_SIZE;
-		res = (unsigned char*)malloc(sizeof(char) * len);
-
-		HMAC_CTX *ctx;
-		ctx = HMAC_CTX_new();
-
-		HMAC_Init_ex(ctx, key.c_str(), key.length(), EVP_sha256(), NULL);
-		HMAC_Update(ctx, (unsigned char*)data.c_str(), data.length());
-		HMAC_Final(ctx, res, &len);
-		HMAC_CTX_free(ctx);
-
-		for (unsigned int h = 0; h != len; h++) {
-			String hex;
-			hex.printf("%02x", (unsigned int)res[h]);
-			ret += hex;
-		}
-		free(res);
-
 		return ret;
 	}
 #endif
