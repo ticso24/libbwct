@@ -5,3 +5,5 @@ Makefile
 cmake_install.cmake
 src/config.h
 libbwct.a
+bwctConfig.cmake
+bwctConfigVersion.cmake
