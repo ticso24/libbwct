@@ -456,6 +456,6 @@ namespace bwct
 	{
 		File::mywaitwrite();
 	}
-}
 #endif
+}
 
